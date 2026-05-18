@@ -1,0 +1,13 @@
+{
+  "id": "ACME-7841",
+  "customer_name": "Vikram Iyer",
+  "email_address": "vikram@acmeinfra.example",
+  "tel": "(080) 4123-7700",
+  "organization": "Acme Infrastructure Bangalore",
+  "addr": "21 MG Road, Bengaluru 560001",
+  "comment": "Migrated from legacy ERP — verify GST before invoicing",
+  "_meta": {
+    "exported_by": "salesops@unifyapps.example",
+    "source_system": "ZendeskExport-v3"
+  }
+}

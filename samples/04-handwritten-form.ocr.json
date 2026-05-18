@@ -1,0 +1,13 @@
+{
+  "ocr_engine": "tesseract-5.3",
+  "scan_id": "form-2026-05-12-008",
+  "confidence_overall": 0.71,
+  "raw_text": "Customer: Mohammed Rashid\nCompany Name :: Crescent Imports\nemail :  mrashid AT crescentimports DOT example\nMobile -- 9876543210\nAddr.: 7-A, Jubilee Hills, Hyderabad - 500033\n(handwriting blurry on telephone country code)",
+  "fields": {
+    "Name": "Mohammed Rashid",
+    "Company": "Crescent Imports",
+    "Email": "mrashid@crescentimports.example",
+    "Phone": "+91 9876543210",
+    "Address": "7-A, Jubilee Hills, Hyderabad 500033"
+  }
+}

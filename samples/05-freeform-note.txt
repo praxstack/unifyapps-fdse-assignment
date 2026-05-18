@@ -1,0 +1,10 @@
+Onboarding ticket #4419 - opened by sales rep Karthik P (Bangalore office)
+
+Lead came in through the MNNIT alumni network event last week. Customer wants
+to integrate their internal HR tool with our platform via webhooks. Decision
+maker is Sara D'Souza (CTO). Sara's contact: sara.dsouza@bluepilot.example.
+She mentioned phone is fine for urgent stuff: 022-6611-9988 (Mumbai office).
+
+Company is Blue Pilot Aviation, registered office at 14F, BKC, Mumbai 400051.
+
+NOTE: confirm GDPR posture before sharing API docs - they have EU customers.

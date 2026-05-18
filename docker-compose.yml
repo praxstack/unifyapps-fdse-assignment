@@ -1,0 +1,35 @@
+services:
+  mock-crm:
+    build: .
+    image: agentic-onboard:dev
+    container_name: agentic-onboard-mock-crm
+    ports:
+      - "127.0.0.1:8765:8765"
+    environment:
+      CRM_FAULT_RATE_429: "${CRM_FAULT_RATE_429:-0.10}"
+      CRM_FAULT_RATE_503: "${CRM_FAULT_RATE_503:-0.05}"
+      CRM_LATENCY_MS_MIN: "${CRM_LATENCY_MS_MIN:-20}"
+      CRM_LATENCY_MS_MAX: "${CRM_LATENCY_MS_MAX:-120}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8765/health').status == 200 else 1)"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 3s
+
+  orchestrator:
+    image: agentic-onboard:dev
+    profiles: ["demo"]   # only runs on `docker compose --profile demo up`
+    depends_on:
+      mock-crm:
+        condition: service_healthy
+    environment:
+      CRM_BASE_URL: "http://mock-crm:8765"
+      LLM_PROVIDER: "${LLM_PROVIDER:-mock}"
+      OPENROUTER_API_KEY: "${OPENROUTER_API_KEY:-}"
+      OPENROUTER_MODEL: "${OPENROUTER_MODEL:-openai/gpt-4o-mini}"
+      DATABASE_URL: "sqlite:///app/data/onboard.db"
+    volumes:
+      - ./samples:/app/samples:ro
+      - ./data:/app/data
+    command: ["agentic-onboard", "run", "samples/"]
