@@ -1,0 +1,18 @@
+# Gitleaks config — extends the default ruleset with allowlists.
+# https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Placeholder values in .env.example are intentionally non-secret."
+# Match the example file by path; never the real .env.
+paths = [
+  '''(^|/)\.env\.example$''',
+]
+# Belt-and-suspenders: also allowlist common placeholder shapes.
+regexes = [
+  '''REPLACE_ME''',
+  '''YOUR_[A-Z_]+_HERE''',
+  '''<[a-zA-Z_-]+>''',
+]
