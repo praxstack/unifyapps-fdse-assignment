@@ -1,0 +1,187 @@
+{
+  "scriptCompleted": true,
+  "filesAnalyzed": 1,
+  "filesSkipped": [],
+  "results": [
+    {
+      "path": "src/agentic_onboard/crm_client.py",
+      "language": "python",
+      "fileCategory": "code",
+      "totalLines": 209,
+      "nonEmptyLines": 167,
+      "classes": [
+        {
+          "name": "CRMError",
+          "startLine": 52,
+          "endLine": 53,
+          "methods": [],
+          "properties": []
+        },
+        {
+          "name": "CRMRetriableError",
+          "startLine": 56,
+          "endLine": 57,
+          "methods": [],
+          "properties": []
+        },
+        {
+          "name": "CRMPermanentError",
+          "startLine": 60,
+          "endLine": 61,
+          "methods": [],
+          "properties": []
+        },
+        {
+          "name": "CRMClient",
+          "startLine": 69,
+          "endLine": 209,
+          "methods": [
+            "__init__",
+            "__enter__",
+            "__exit__",
+            "close",
+            "breaker",
+            "upsert",
+            "_do_upsert"
+          ],
+          "properties": []
+        }
+      ],
+      "exports": [
+        {
+          "name": "CRMError",
+          "line": 52,
+          "isDefault": false
+        },
+        {
+          "name": "CRMRetriableError",
+          "line": 56,
+          "isDefault": false
+        },
+        {
+          "name": "CRMPermanentError",
+          "line": 60,
+          "isDefault": false
+        },
+        {
+          "name": "CRMClient",
+          "line": 69,
+          "isDefault": false
+        }
+      ],
+      "callGraph": [
+        {
+          "caller": "__init__",
+          "callee": "httpx.Client",
+          "lineNumber": 80
+        },
+        {
+          "caller": "__init__",
+          "callee": "CircuitBreaker",
+          "lineNumber": 86
+        },
+        {
+          "caller": "__exit__",
+          "callee": "self.close",
+          "lineNumber": 103
+        },
+        {
+          "caller": "close",
+          "callee": "self._client.close",
+          "lineNumber": 108
+        },
+        {
+          "caller": "upsert",
+          "callee": "self._breaker.before_call",
+          "lineNumber": 132
+        },
+        {
+          "caller": "upsert",
+          "callee": "Retrying",
+          "lineNumber": 137
+        },
+        {
+          "caller": "upsert",
+          "callee": "stop_after_attempt",
+          "lineNumber": 138
+        },
+        {
+          "caller": "upsert",
+          "callee": "wait_exponential_jitter",
+          "lineNumber": 139
+        },
+        {
+          "caller": "upsert",
+          "callee": "retry_if_exception_type",
+          "lineNumber": 144
+        },
+        {
+          "caller": "upsert",
+          "callee": "self._do_upsert",
+          "lineNumber": 152
+        },
+        {
+          "caller": "upsert",
+          "callee": "self._breaker.record_failure",
+          "lineNumber": 157
+        },
+        {
+          "caller": "upsert",
+          "callee": "self._breaker.record_success",
+          "lineNumber": 166
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "log.debug",
+          "lineNumber": 178
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "self._client.post",
+          "lineNumber": 184
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "request.model_dump",
+          "lineNumber": 186
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "CRMRetriableError",
+          "lineNumber": 191
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "CRMUpsertResponse.model_validate",
+          "lineNumber": 194
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "response.json",
+          "lineNumber": 194
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "log.info",
+          "lineNumber": 197
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "CRMRetriableError",
+          "lineNumber": 203
+        },
+        {
+          "caller": "_do_upsert",
+          "callee": "CRMPermanentError",
+          "lineNumber": 209
+        }
+      ],
+      "metrics": {
+        "importCount": 4,
+        "exportCount": 4,
+        "functionCount": 0,
+        "classCount": 4
+      }
+    }
+  ]
+}

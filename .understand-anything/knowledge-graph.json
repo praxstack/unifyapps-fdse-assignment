@@ -1,0 +1,2621 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "agentic-onboard",
+    "languages": [
+      "csv",
+      "dockerfile",
+      "eml",
+      "example",
+      "json",
+      "makefile",
+      "markdown",
+      "python",
+      "toml",
+      "txt",
+      "yaml"
+    ],
+    "frameworks": [
+      "Docker",
+      "Docker Compose",
+      "Fastapi",
+      "GitHub Actions",
+      "Httpx",
+      "Hypothesis",
+      "Makefile",
+      "Pydantic",
+      "Pytest",
+      "Tenacity",
+      "Typer",
+      "Uvicorn"
+    ],
+    "description": "Enterprise data + agentic workflow integration: S3 → LLM parser → resilient legacy CRM client. UnifyApps FDSE assignment submission.",
+    "analyzedAt": "2026-05-23T08:45:33Z",
+    "gitCommitHash": "9f35fc772cf54da1e269f317282b9c1c86a9bea3"
+  },
+  "nodes": [
+    {
+      "id": "file:src/agentic_onboard/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/agentic_onboard/__init__.py",
+      "summary": "Package barrel for the agentic_onboard pipeline; declares __version__ and the top-level public surface (settings, schemas, orchestrator, cli) so callers can import from the package root.",
+      "tags": [
+        "entry-point",
+        "package-init",
+        "barrel",
+        "versioning"
+      ],
+      "complexity": "simple",
+      "languageNotes": "Python package barrel: a Python convention where a package's __init__.py re-exports its public API."
+    },
+    {
+      "id": "file:src/agentic_onboard/settings.py",
+      "type": "file",
+      "name": "settings.py",
+      "filePath": "src/agentic_onboard/settings.py",
+      "summary": "Pydantic-Settings module that loads every tunable knob in the pipeline (LLM provider, CRM URL, retry/circuit-breaker thresholds, logging, HTTP timeouts) from environment variables with a .env fallback, exposed as a memoized get_settings() singleton.",
+      "tags": [
+        "configuration",
+        "settings",
+        "pydantic",
+        "singleton",
+        "env-config"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:src/agentic_onboard/settings.py:Settings",
+      "type": "class",
+      "name": "Settings",
+      "filePath": "src/agentic_onboard/settings.py",
+      "lineRange": [
+        13,
+        70
+      ],
+      "summary": "Pydantic-Settings model that declares every runtime knob as a typed field with env-var binding, enabling type-safe configuration without scattered os.getenv() calls.",
+      "tags": [
+        "pydantic-model",
+        "settings",
+        "type-safety"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/agentic_onboard/logging_config.py",
+      "type": "file",
+      "name": "logging_config.py",
+      "filePath": "src/agentic_onboard/logging_config.py",
+      "summary": "Structured-JSON logging setup with a SecretRedactionFilter that scrubs API keys, bearer tokens, and email addresses from log records, plus a get_logger() helper that lazy-initializes once per process.",
+      "tags": [
+        "logging",
+        "observability",
+        "security",
+        "redaction",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:src/agentic_onboard/logging_config.py:JsonFormatter",
+      "type": "class",
+      "name": "JsonFormatter",
+      "filePath": "src/agentic_onboard/logging_config.py",
+      "lineRange": [
+        25,
+        60
+      ],
+      "summary": "logging.Formatter subclass that emits each LogRecord as a single JSON line including timestamp, level, message, and any extra fields — designed for ingestion by log aggregators.",
+      "tags": [
+        "logging",
+        "json-formatter",
+        "structured-logging"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/agentic_onboard/logging_config.py:configure_logging",
+      "type": "function",
+      "name": "configure_logging",
+      "filePath": "src/agentic_onboard/logging_config.py",
+      "lineRange": [
+        70,
+        100
+      ],
+      "summary": "One-shot logger configuration entry point: installs the JsonFormatter and SecretRedactionFilter on the root handler at the level specified in Settings.",
+      "tags": [
+        "logging",
+        "bootstrap",
+        "configuration"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/agentic_onboard/schemas.py",
+      "type": "file",
+      "name": "schemas.py",
+      "filePath": "src/agentic_onboard/schemas.py",
+      "summary": "Single source of truth for Pydantic data contracts in the pipeline: SourceFormat, RawDocument, ParsedRecord, NormalizedContact, CRMUpsertRequest/Response, AuditEvent, and the RunStats / RecordStatus enums consumed by every other module.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "schema",
+        "validation",
+        "contracts",
+        "tested"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses Pydantic v2 model_config with model_validator for cross-field constraints (e.g. confidence ∈ [0, 1])."
+    },
+    {
+      "id": "class:src/agentic_onboard/schemas.py:RawDocument",
+      "type": "class",
+      "name": "RawDocument",
+      "filePath": "src/agentic_onboard/schemas.py",
+      "lineRange": [
+        40,
+        75
+      ],
+      "summary": "Pydantic model for an unparsed document fetched from the source; carries source_id, content_hash (used as part of the idempotency key), format, and raw bytes/text payload.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "ingest"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/schemas.py:ParsedRecord",
+      "type": "class",
+      "name": "ParsedRecord",
+      "filePath": "src/agentic_onboard/schemas.py",
+      "lineRange": [
+        80,
+        115
+      ],
+      "summary": "Output of the LLM parser: a NormalizedContact plus the parser's confidence score and a free-text rationale used to gate human-review escalation.",
+      "tags": [
+        "data-model",
+        "pydantic",
+        "llm-output"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/schemas.py:NormalizedContact",
+      "type": "class",
+      "name": "NormalizedContact",
+      "filePath": "src/agentic_onboard/schemas.py",
+      "lineRange": [
+        120,
+        150
+      ],
+      "summary": "Canonical contact shape (name, email, phone, company, source) that every input format collapses into before being upserted into the legacy CRM.",
+      "tags": [
+        "data-model",
+        "canonical",
+        "contact"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/schemas.py:CRMUpsertRequest",
+      "type": "class",
+      "name": "CRMUpsertRequest",
+      "filePath": "src/agentic_onboard/schemas.py",
+      "lineRange": [
+        155,
+        175
+      ],
+      "summary": "CRM upsert payload bound to an idempotency_key derived from sha256(source_id || content_hash); the legacy CRM uses the key to dedupe replays.",
+      "tags": [
+        "data-model",
+        "idempotency",
+        "crm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/schemas.py:RunStats",
+      "type": "class",
+      "name": "RunStats",
+      "filePath": "src/agentic_onboard/schemas.py",
+      "lineRange": [
+        180,
+        195
+      ],
+      "summary": "Aggregated counters tallied by the orchestrator across a run: ingested, succeeded, duplicate, parse_failed, dlq, and total_latency_ms; serialized to the run summary line.",
+      "tags": [
+        "data-model",
+        "metrics",
+        "run-summary"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/agentic_onboard/ingest.py",
+      "type": "file",
+      "name": "ingest.py",
+      "filePath": "src/agentic_onboard/ingest.py",
+      "summary": "Source-side ingestion layer with two implementations: FileIngester (walks a local directory and emits RawDocument per file) and S3Ingester (lists/streams objects from S3) — both speak the same Ingester Protocol so the orchestrator does not care which one is wired in.",
+      "tags": [
+        "ingest",
+        "s3",
+        "filesystem",
+        "protocol",
+        "tested"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:src/agentic_onboard/ingest.py:Ingester",
+      "type": "class",
+      "name": "Ingester",
+      "filePath": "src/agentic_onboard/ingest.py",
+      "lineRange": [
+        25,
+        45
+      ],
+      "summary": "typing.Protocol that pins the contract of a document source: an iter_documents() generator yielding RawDocument with source_id and content_hash already set.",
+      "tags": [
+        "protocol",
+        "interface",
+        "polymorphism"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/ingest.py:FileIngester",
+      "type": "class",
+      "name": "FileIngester",
+      "filePath": "src/agentic_onboard/ingest.py",
+      "lineRange": [
+        50,
+        100
+      ],
+      "summary": "Local-disk Ingester: walks a samples/ directory, classifies each file by suffix into a SourceFormat, hashes its bytes for idempotency, and yields RawDocument instances.",
+      "tags": [
+        "ingest",
+        "filesystem",
+        "fixtures"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:src/agentic_onboard/ingest.py:S3Ingester",
+      "type": "class",
+      "name": "S3Ingester",
+      "filePath": "src/agentic_onboard/ingest.py",
+      "lineRange": [
+        105,
+        135
+      ],
+      "summary": "Stub S3 Ingester satisfying the same Protocol — kept thin on purpose since the assignment requires the abstraction; production would swap in a paginated, range-aware boto3 client without touching the orchestrator.",
+      "tags": [
+        "ingest",
+        "s3",
+        "stub",
+        "future-work"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/agentic_onboard/circuit_breaker.py",
+      "type": "file",
+      "name": "circuit_breaker.py",
+      "filePath": "src/agentic_onboard/circuit_breaker.py",
+      "summary": "Hand-rolled three-state (CLOSED/OPEN/HALF_OPEN) circuit breaker that fast-fails calls to an unreliable downstream after consecutive infra-level failures and probes for recovery after a configurable cool-down. Thread-safe via a single lock and emits CircuitOpenError with a retry_after hint so the orchestrator can route rejected work to the DLQ instead of hammering a dying service.",
+      "tags": [
+        "resilience",
+        "circuit-breaker",
+        "fault-tolerance",
+        "concurrency",
+        "service",
+        "tested"
+      ],
+      "complexity": "moderate",
+      "languageNotes": "Uses StrEnum for the state machine and time.monotonic() to make the half-open recovery timer immune to wall-clock jumps."
+    },
+    {
+      "id": "class:src/agentic_onboard/circuit_breaker.py:CircuitState",
+      "type": "class",
+      "name": "CircuitState",
+      "filePath": "src/agentic_onboard/circuit_breaker.py",
+      "lineRange": [
+        20,
+        35
+      ],
+      "summary": "StrEnum of the three breaker states (CLOSED, OPEN, HALF_OPEN) — also used in audit log fields so post-mortems can correlate state transitions with failures.",
+      "tags": [
+        "state-machine",
+        "enum",
+        "circuit-breaker"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/circuit_breaker.py:CircuitOpenError",
+      "type": "class",
+      "name": "CircuitOpenError",
+      "filePath": "src/agentic_onboard/circuit_breaker.py",
+      "lineRange": [
+        40,
+        55
+      ],
+      "summary": "Custom exception raised when the breaker is OPEN; carries the seconds-until-recovery hint that the CRM client surfaces to the orchestrator for DLQ retry scheduling.",
+      "tags": [
+        "exception",
+        "circuit-breaker",
+        "back-pressure"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/circuit_breaker.py:CircuitBreaker",
+      "type": "class",
+      "name": "CircuitBreaker",
+      "filePath": "src/agentic_onboard/circuit_breaker.py",
+      "lineRange": [
+        60,
+        155
+      ],
+      "summary": "Three-state breaker implementation: opens after N consecutive failures, blocks all calls for recovery_timeout seconds, then permits a single probe in HALF_OPEN — success closes, any failure re-opens. Thread-safe; tracks last_failure_at, consecutive_failures, and emits structured logs at every transition.",
+      "tags": [
+        "resilience",
+        "circuit-breaker",
+        "thread-safe",
+        "state-machine"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:src/agentic_onboard/crm_client.py",
+      "type": "file",
+      "name": "crm_client.py",
+      "filePath": "src/agentic_onboard/crm_client.py",
+      "summary": "Resilient HTTP client for the legacy CRM that layers tenacity retries (exponential backoff with jitter on 429/503/network), the hand-rolled circuit breaker, and sha256 idempotency keys over httpx. Exposes a single upsert_contact() entry point that the orchestrator calls per record.",
+      "tags": [
+        "http-client",
+        "resilience",
+        "tenacity",
+        "idempotency",
+        "crm",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Tenacity retry policies are composed via @retry decorators with retry_if_exception_type and stop_after_attempt; the breaker check sits inside the retry loop so transient failures hit the breaker but 4xx contract errors do not."
+    },
+    {
+      "id": "class:src/agentic_onboard/crm_client.py:CRMTransientError",
+      "type": "class",
+      "name": "CRMTransientError",
+      "filePath": "src/agentic_onboard/crm_client.py",
+      "lineRange": [
+        25,
+        35
+      ],
+      "summary": "Marker exception for retryable infra-level failures (5xx, 429, network/timeout); only this class trips the breaker and is retried by tenacity.",
+      "tags": [
+        "exception",
+        "retry",
+        "transient"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/crm_client.py:CRMPermanentError",
+      "type": "class",
+      "name": "CRMPermanentError",
+      "filePath": "src/agentic_onboard/crm_client.py",
+      "lineRange": [
+        40,
+        50
+      ],
+      "summary": "Marker exception for non-retryable contract failures (4xx other than 429); fails the record fast and routes it to the DLQ for human review without consuming the retry budget.",
+      "tags": [
+        "exception",
+        "permanent",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/crm_client.py:CRMClient",
+      "type": "class",
+      "name": "CRMClient",
+      "filePath": "src/agentic_onboard/crm_client.py",
+      "lineRange": [
+        60,
+        200
+      ],
+      "summary": "Production CRM client: holds an httpx.Client, a CircuitBreaker, and Settings; upsert_contact() builds the idempotency key, asks the breaker for permission, runs the call inside a tenacity retry envelope, and translates HTTP status codes into transient vs permanent exceptions.",
+      "tags": [
+        "http-client",
+        "resilience",
+        "circuit-breaker",
+        "retry",
+        "idempotency"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:src/agentic_onboard/audit.py",
+      "type": "file",
+      "name": "audit.py",
+      "filePath": "src/agentic_onboard/audit.py",
+      "summary": "SQLite-backed audit log + DLQ store opened in WAL mode; every state transition (run start/finalize, parse, CRM call, DLQ enqueue) is written before the action runs so a crash mid-pipeline is observable post-mortem from the audit trail alone.",
+      "tags": [
+        "audit",
+        "dlq",
+        "sqlite",
+        "persistence",
+        "observability",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Uses sqlite3 with WAL journal_mode and synchronous=NORMAL for crash-safety without per-write fsync latency; primary keys on (run_id, source_id) enforce idempotency at the storage layer."
+    },
+    {
+      "id": "class:src/agentic_onboard/audit.py:AuditStore",
+      "type": "class",
+      "name": "AuditStore",
+      "filePath": "src/agentic_onboard/audit.py",
+      "lineRange": [
+        40,
+        250
+      ],
+      "summary": "Concrete audit/DLQ store: opens the SQLite file in WAL mode, lazily creates schema, exposes start_run/finalize_run for run lifecycle, append_event for the audit log, and enqueue_dlq/list_dlq/pop_dlq for the dead-letter queue used by `cli dlq replay`.",
+      "tags": [
+        "audit",
+        "dlq",
+        "sqlite",
+        "persistence"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/agentic_onboard/audit.py:open_audit_store",
+      "type": "function",
+      "name": "open_audit_store",
+      "filePath": "src/agentic_onboard/audit.py",
+      "lineRange": [
+        255,
+        275
+      ],
+      "summary": "Factory that wires Settings to an AuditStore at the configured DB path; called once per process by the orchestrator and CLI commands.",
+      "tags": [
+        "factory",
+        "audit",
+        "bootstrap"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/agentic_onboard/parser.py",
+      "type": "file",
+      "name": "parser.py",
+      "filePath": "src/agentic_onboard/parser.py",
+      "summary": "LLM parser interface (Parser Protocol) with two implementations: OpenRouterParser (real LLM calls via OpenRouter HTTP API with structured-output JSON validation) and MockParser (deterministic fixture-driven parser used in tests and offline demos). Confidence and rationale come back so the orchestrator can gate on a min-confidence threshold.",
+      "tags": [
+        "llm",
+        "parser",
+        "protocol",
+        "structured-output",
+        "tested"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:src/agentic_onboard/parser.py:Parser",
+      "type": "class",
+      "name": "Parser",
+      "filePath": "src/agentic_onboard/parser.py",
+      "lineRange": [
+        30,
+        50
+      ],
+      "summary": "typing.Protocol that pins the parser contract: parse(RawDocument) -> ParsedRecord — every implementation must produce a NormalizedContact plus a [0, 1] confidence and a rationale string.",
+      "tags": [
+        "protocol",
+        "interface",
+        "llm"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/parser.py:ParseError",
+      "type": "class",
+      "name": "ParseError",
+      "filePath": "src/agentic_onboard/parser.py",
+      "lineRange": [
+        55,
+        65
+      ],
+      "summary": "Raised when the parser cannot produce a valid ParsedRecord (LLM JSON validation failure, low-quality output, or upstream API error); routes the document to the parse_failed bucket in RunStats.",
+      "tags": [
+        "exception",
+        "parser",
+        "validation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "class:src/agentic_onboard/parser.py:OpenRouterParser",
+      "type": "class",
+      "name": "OpenRouterParser",
+      "filePath": "src/agentic_onboard/parser.py",
+      "lineRange": [
+        70,
+        200
+      ],
+      "summary": "Real-LLM parser: sends a structured-output prompt to OpenRouter, validates the response against the ParsedRecord Pydantic schema, retries on transient HTTP failures, and redacts API keys from log lines via SecretRedactionFilter.",
+      "tags": [
+        "llm",
+        "openrouter",
+        "parser",
+        "structured-output"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:src/agentic_onboard/parser.py:MockParser",
+      "type": "class",
+      "name": "MockParser",
+      "filePath": "src/agentic_onboard/parser.py",
+      "lineRange": [
+        205,
+        250
+      ],
+      "summary": "Deterministic fixture parser used by tests and the offline demo: returns hard-coded ParsedRecord values keyed by source_id, including one parse_failed and one low-confidence case that proves the pipeline's gating logic works end-to-end.",
+      "tags": [
+        "mock",
+        "parser",
+        "test-double",
+        "deterministic"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/agentic_onboard/orchestrator.py",
+      "type": "file",
+      "name": "orchestrator.py",
+      "filePath": "src/agentic_onboard/orchestrator.py",
+      "summary": "Top-level pipeline coordinator that wires ingest → parser → CRM upsert → audit, enforcing a confidence-gated human-review threshold and routing terminal failures to a SQLite-backed DLQ. Single module that knows the full pipeline shape; every other component sits behind a Protocol or a narrow public API.",
+      "tags": [
+        "orchestrator",
+        "pipeline",
+        "agentic-workflow",
+        "dlq",
+        "audit",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Idempotency is enforced upstream via (source_id, content_hash) keys carried on CRMUpsertRequest; the orchestrator writes to the audit log before each step so a crash is observable post-mortem."
+    },
+    {
+      "id": "class:src/agentic_onboard/orchestrator.py:Orchestrator",
+      "type": "class",
+      "name": "Orchestrator",
+      "filePath": "src/agentic_onboard/orchestrator.py",
+      "lineRange": [
+        56,
+        268
+      ],
+      "summary": "Single-class agent loop constructed once per run; iterates raw documents, parses them, gates on confidence, calls the resilient CRM client, and writes audit events plus DLQ entries on failure — accumulating RunStats counters for the run summary line.",
+      "tags": [
+        "orchestrator",
+        "agent-loop",
+        "state-machine"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/agentic_onboard/orchestrator.py:run_pipeline",
+      "type": "function",
+      "name": "run_pipeline",
+      "filePath": "src/agentic_onboard/orchestrator.py",
+      "lineRange": [
+        275,
+        340
+      ],
+      "summary": "Top-level entry point invoked by the CLI: builds Settings, opens the AuditStore, instantiates the parser/CRM client/orchestrator, runs the loop, and returns RunStats for printing.",
+      "tags": [
+        "entry-point",
+        "pipeline",
+        "bootstrap"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:src/agentic_onboard/cli.py",
+      "type": "file",
+      "name": "cli.py",
+      "filePath": "src/agentic_onboard/cli.py",
+      "summary": "Typer CLI that exposes the four operator commands needed to run and observe the pipeline: `agentic-onboard run` (full pipeline), `dlq list` (inspect failed records), `dlq replay` (retry DLQ entries), and `audit` (paginate the audit log). The console-script entry point declared in pyproject.toml.",
+      "tags": [
+        "cli",
+        "typer",
+        "entry-point",
+        "operator-tooling"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/agentic_onboard/cli.py:run",
+      "type": "function",
+      "name": "run",
+      "filePath": "src/agentic_onboard/cli.py",
+      "lineRange": [
+        50,
+        100
+      ],
+      "summary": "`agentic-onboard run` Typer command: reads source path, parser mode, and CRM URL flags, calls run_pipeline, and prints the RunStats summary as a single JSON line for log scrapers.",
+      "tags": [
+        "cli",
+        "command",
+        "pipeline-entry"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/agentic_onboard/cli.py:dlq_list",
+      "type": "function",
+      "name": "dlq_list",
+      "filePath": "src/agentic_onboard/cli.py",
+      "lineRange": [
+        110,
+        150
+      ],
+      "summary": "`dlq list` Typer command: prints DLQ entries (run_id, source_id, error class, retry count) in a Rich-formatted table for human triage of failed records.",
+      "tags": [
+        "cli",
+        "dlq",
+        "operator-tooling"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/agentic_onboard/cli.py:dlq_replay",
+      "type": "function",
+      "name": "dlq_replay",
+      "filePath": "src/agentic_onboard/cli.py",
+      "lineRange": [
+        155,
+        195
+      ],
+      "summary": "`dlq replay` Typer command: pops DLQ entries one-at-a-time and re-runs them through the orchestrator with a fresh CRM client, proving idempotency holds because the CRM dedupes on the same idempotency_key.",
+      "tags": [
+        "cli",
+        "dlq",
+        "replay",
+        "idempotency"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:src/agentic_onboard/cli.py:audit",
+      "type": "function",
+      "name": "audit",
+      "filePath": "src/agentic_onboard/cli.py",
+      "lineRange": [
+        200,
+        240
+      ],
+      "summary": "`audit` Typer command: tails or paginates the SQLite audit log for a given run_id; the operator-facing window into write-before-step state transitions.",
+      "tags": [
+        "cli",
+        "audit",
+        "observability"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/mock_crm/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "src/mock_crm/__init__.py",
+      "summary": "Empty package marker for the mock_crm test double so it can be imported as `mock_crm.server` and run with `uvicorn mock_crm.server:app`.",
+      "tags": [
+        "package-init",
+        "barrel"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:src/mock_crm/server.py",
+      "type": "file",
+      "name": "server.py",
+      "filePath": "src/mock_crm/server.py",
+      "summary": "FastAPI mock CRM with deliberate fault injection: returns 429 (Retry-After) under load thresholds, 503 with random jitter, and occasional latency spikes — used to prove the resilience layer (circuit breaker + tenacity + idempotency) actually works against a misbehaving downstream. Holds an in-memory dict keyed by idempotency_key for replay-safety.",
+      "tags": [
+        "fastapi",
+        "mock",
+        "fault-injection",
+        "test-double",
+        "crm",
+        "tested"
+      ],
+      "complexity": "complex",
+      "languageNotes": "Fault rates are configurable via CRM_FAULT_RATE_429 / CRM_FAULT_RATE_503 env vars so tests can pin them to 0 for deterministic runs and demos can crank them up to prove the breaker opens."
+    },
+    {
+      "id": "function:src/mock_crm/server.py:upsert_contact",
+      "type": "function",
+      "name": "upsert_contact",
+      "filePath": "src/mock_crm/server.py",
+      "lineRange": [
+        60,
+        130
+      ],
+      "summary": "POST /contacts handler: validates the CRMUpsertRequest, applies fault-injection probabilities, and on success either inserts (new idempotency_key) or returns the existing record (replay) — the duplicate path is what lets the orchestrator prove idempotency end-to-end.",
+      "tags": [
+        "fastapi",
+        "endpoint",
+        "idempotency",
+        "fault-injection"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:src/mock_crm/server.py:health",
+      "type": "function",
+      "name": "health",
+      "filePath": "src/mock_crm/server.py",
+      "lineRange": [
+        140,
+        155
+      ],
+      "summary": "GET /health endpoint that ignores fault injection so liveness probes always work; used by docker-compose's healthcheck.",
+      "tags": [
+        "fastapi",
+        "endpoint",
+        "health-check"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:src/mock_crm/server.py:reset",
+      "type": "function",
+      "name": "reset",
+      "filePath": "src/mock_crm/server.py",
+      "lineRange": [
+        160,
+        180
+      ],
+      "summary": "POST /admin/reset clears the in-memory store and fault counters; called between test runs and at the start of the demo so each replay starts from a known state.",
+      "tags": [
+        "fastapi",
+        "endpoint",
+        "test-harness"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/__init__.py",
+      "type": "file",
+      "name": "__init__.py",
+      "filePath": "tests/__init__.py",
+      "summary": "Empty package marker so pytest can discover the tests/ directory and conftest.py fixtures are visible to every test module.",
+      "tags": [
+        "test",
+        "package-init",
+        "marker"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/conftest.py",
+      "type": "file",
+      "name": "conftest.py",
+      "filePath": "tests/conftest.py",
+      "summary": "Shared pytest fixtures for the test suite: hermetic Settings, per-test SQLite-backed AuditStore in tmp_path, a MockParser, and an httpx.MockTransport-bound CRMClient factory so tests never touch the network or a real .env.",
+      "tags": [
+        "test",
+        "pytest",
+        "fixtures",
+        "conftest",
+        "test-harness"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/conftest.py:audit_store",
+      "type": "function",
+      "name": "audit_store",
+      "filePath": "tests/conftest.py",
+      "lineRange": [
+        25,
+        50
+      ],
+      "summary": "pytest fixture that opens a fresh AuditStore on a tmp_path SQLite file and tears it down after the test; isolates audit state between tests.",
+      "tags": [
+        "test",
+        "fixture",
+        "audit"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/conftest.py:mock_crm_client",
+      "type": "function",
+      "name": "mock_crm_client",
+      "filePath": "tests/conftest.py",
+      "lineRange": [
+        55,
+        78
+      ],
+      "summary": "pytest fixture that builds a CRMClient backed by httpx.MockTransport so tests can script CRM responses (success, 429, 503, 500) without spinning up the real mock_crm server.",
+      "tags": [
+        "test",
+        "fixture",
+        "httpx-mock",
+        "crm-client"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_audit.py",
+      "type": "file",
+      "name": "test_audit.py",
+      "filePath": "tests/test_audit.py",
+      "summary": "Unit tests for AuditStore: covers run lifecycle (start_run/finalize_run), append-only audit log ordering, RecordStatus enum support, and DLQ insert/upsert/pop/list filtered by run_id.",
+      "tags": [
+        "test",
+        "pytest",
+        "unit-test",
+        "audit-test",
+        "dlq-test"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_audit.py:TestAuditLifecycle",
+      "type": "class",
+      "name": "TestAuditLifecycle",
+      "filePath": "tests/test_audit.py",
+      "lineRange": [
+        15,
+        50
+      ],
+      "summary": "Test class covering run start/finalize semantics — proves that finalize_run is idempotent and that the run row carries the correct status and stats.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "audit"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_audit.py:TestDlq",
+      "type": "class",
+      "name": "TestDlq",
+      "filePath": "tests/test_audit.py",
+      "lineRange": [
+        55,
+        99
+      ],
+      "summary": "Test class covering DLQ enqueue/list/pop semantics including run-scoped filtering — proves the DLQ replay command sees only entries for the requested run.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "dlq"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_circuit_breaker.py",
+      "type": "file",
+      "name": "test_circuit_breaker.py",
+      "filePath": "tests/test_circuit_breaker.py",
+      "summary": "State-machine tests for CircuitBreaker covering closed→open transition on threshold failures, blocked calls in OPEN, half-open probe behavior on recovery_timeout, and re-open on probe failure. Uses freezegun-style fake clocks where needed for deterministic recovery.",
+      "tags": [
+        "test",
+        "pytest",
+        "circuit-breaker-test",
+        "state-machine",
+        "unit-test"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_circuit_breaker.py:TestCircuitBreaker",
+      "type": "class",
+      "name": "TestCircuitBreaker",
+      "filePath": "tests/test_circuit_breaker.py",
+      "lineRange": [
+        15,
+        75
+      ],
+      "summary": "Walks the breaker through every state transition: closed (success), closed→open at threshold, open (CircuitOpenError), open→half-open after recovery_timeout, half-open→closed on success, half-open→open on probe failure.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "circuit-breaker",
+        "state-machine"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/test_crm_client.py",
+      "type": "file",
+      "name": "test_crm_client.py",
+      "filePath": "tests/test_crm_client.py",
+      "summary": "Tests for CRMClient covering retry-on-transient (429/503/500), no-retry-on-permanent (4xx), idempotency-key replay safety, and breaker integration. Uses httpx.MockTransport scripted from conftest fixtures so tests run offline and are wall-clock fast.",
+      "tags": [
+        "test",
+        "pytest",
+        "crm-client-test",
+        "httpx-mock",
+        "integration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:tests/test_crm_client.py:TestCRMClientRetries",
+      "type": "class",
+      "name": "TestCRMClientRetries",
+      "filePath": "tests/test_crm_client.py",
+      "lineRange": [
+        25,
+        130
+      ],
+      "summary": "Verifies the retry envelope: tenacity retries on 429/503/transient, surfaces CRMPermanentError immediately on 400/422, and the idempotency key remains stable across retries so the CRM dedupes correctly.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "retry",
+        "tenacity",
+        "idempotency"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "function:tests/test_crm_client.py:test_breaker_opens_after_repeated_failures",
+      "type": "function",
+      "name": "test_breaker_opens_after_repeated_failures",
+      "filePath": "tests/test_crm_client.py",
+      "lineRange": [
+        140,
+        171
+      ],
+      "summary": "Integration test that floods the client with 503s until the breaker opens, then asserts subsequent calls raise CircuitOpenError fast — proves the breaker is wired correctly inside the retry loop.",
+      "tags": [
+        "test",
+        "integration",
+        "circuit-breaker",
+        "retry"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_ingest.py",
+      "type": "file",
+      "name": "test_ingest.py",
+      "filePath": "tests/test_ingest.py",
+      "summary": "Tests for FileIngester: walks a tmp_path directory of mixed-format fixtures, asserts each file gets a stable content_hash, format is correctly detected from suffix, and the iterator yields RawDocument objects in path-sorted order.",
+      "tags": [
+        "test",
+        "pytest",
+        "ingest-test",
+        "filesystem",
+        "unit-test"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_ingest.py:TestFileIngester",
+      "type": "class",
+      "name": "TestFileIngester",
+      "filePath": "tests/test_ingest.py",
+      "lineRange": [
+        12,
+        63
+      ],
+      "summary": "Asserts FileIngester produces deterministic content_hash values, classifies .eml/.csv/.json/.txt suffixes correctly, and skips binary/unknown files instead of raising.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "ingest"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_logging_redaction.py",
+      "type": "file",
+      "name": "test_logging_redaction.py",
+      "filePath": "tests/test_logging_redaction.py",
+      "summary": "Tests for SecretRedactionFilter: feeds it log records containing api keys, bearer tokens, and email addresses and asserts every secret is replaced with the redacted marker before the JSON line is emitted.",
+      "tags": [
+        "test",
+        "pytest",
+        "logging-test",
+        "security",
+        "redaction"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_logging_redaction.py:test_api_key_is_redacted",
+      "type": "function",
+      "name": "test_api_key_is_redacted",
+      "filePath": "tests/test_logging_redaction.py",
+      "lineRange": [
+        15,
+        35
+      ],
+      "summary": "Asserts that a log record containing `api_key=sk-...` has the value redacted to `***REDACTED***` in the formatted output, and the redaction is robust to dict, kwargs, and f-string injection paths.",
+      "tags": [
+        "test",
+        "redaction",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "function:tests/test_logging_redaction.py:test_bearer_token_is_redacted",
+      "type": "function",
+      "name": "test_bearer_token_is_redacted",
+      "filePath": "tests/test_logging_redaction.py",
+      "lineRange": [
+        40,
+        55
+      ],
+      "summary": "Asserts that Authorization: Bearer XXXX style headers are scrubbed before being emitted as a structured log line — stops accidental key leakage.",
+      "tags": [
+        "test",
+        "redaction",
+        "security"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_mock_crm.py",
+      "type": "file",
+      "name": "test_mock_crm.py",
+      "filePath": "tests/test_mock_crm.py",
+      "summary": "FastAPI TestClient tests for the mock CRM server: validates POST /contacts happy path, 422 on bad payload, 429 fault injection, idempotency-key replay returns the original record, and POST /admin/reset clears state.",
+      "tags": [
+        "test",
+        "pytest",
+        "fastapi-test",
+        "mock-crm-test",
+        "integration"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_mock_crm.py:TestMockCRM",
+      "type": "class",
+      "name": "TestMockCRM",
+      "filePath": "tests/test_mock_crm.py",
+      "lineRange": [
+        15,
+        75
+      ],
+      "summary": "Drives FastAPI TestClient through the full /contacts API surface: insert, replay, validation failure, fault injection — proves the test double behaves the way the resilience layer expects.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "fastapi",
+        "mock-crm"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:tests/test_mock_crm.py:TestFaultInjection",
+      "type": "class",
+      "name": "TestFaultInjection",
+      "filePath": "tests/test_mock_crm.py",
+      "lineRange": [
+        80,
+        103
+      ],
+      "summary": "Knob-by-knob test of the 429 and 503 fault injection probabilities: pins them to 1.0 and asserts every call returns the configured failure with the right Retry-After header.",
+      "tags": [
+        "test",
+        "fault-injection",
+        "fastapi"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "file:tests/test_orchestrator.py",
+      "type": "file",
+      "name": "test_orchestrator.py",
+      "filePath": "tests/test_orchestrator.py",
+      "summary": "End-to-end orchestrator tests using MockParser + httpx.MockTransport CRMClient: verifies the full ingest→parse→upsert→audit pipeline, idempotency on replay, low-confidence routing to DLQ, and parse failure counting in RunStats.",
+      "tags": [
+        "test",
+        "pytest",
+        "orchestrator-test",
+        "end-to-end",
+        "integration"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:tests/test_orchestrator.py:TestOrchestratorHappyPath",
+      "type": "class",
+      "name": "TestOrchestratorHappyPath",
+      "filePath": "tests/test_orchestrator.py",
+      "lineRange": [
+        25,
+        100
+      ],
+      "summary": "Drives a full pipeline run with the 8 fixture files; asserts RunStats counters match the expected breakdown (succeeded/duplicate/parse_failed/dlq) and that the audit log carries write-before-step events for each record.",
+      "tags": [
+        "test",
+        "orchestrator",
+        "end-to-end"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "class:tests/test_orchestrator.py:TestOrchestratorReplay",
+      "type": "class",
+      "name": "TestOrchestratorReplay",
+      "filePath": "tests/test_orchestrator.py",
+      "lineRange": [
+        110,
+        180
+      ],
+      "summary": "Replay test: runs the pipeline once, then replays one of the same documents through the dlq replay path and asserts the CRM saw an idempotent upsert (no duplicate row) and the audit log records both attempts.",
+      "tags": [
+        "test",
+        "orchestrator",
+        "idempotency",
+        "dlq-replay"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "file:tests/test_parser.py",
+      "type": "file",
+      "name": "test_parser.py",
+      "filePath": "tests/test_parser.py",
+      "summary": "Tests for the parser layer: MockParser determinism (same input → same ParsedRecord with same confidence/rationale) and OpenRouterParser response-validation behavior using httpx.MockTransport scripted with valid and malformed LLM responses.",
+      "tags": [
+        "test",
+        "pytest",
+        "parser-test",
+        "unit-test"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_parser.py:TestMockParser",
+      "type": "class",
+      "name": "TestMockParser",
+      "filePath": "tests/test_parser.py",
+      "lineRange": [
+        12,
+        50
+      ],
+      "summary": "Asserts MockParser is deterministic and returns the canned ParsedRecord, including the parse-failed and low-confidence cases that drive DLQ routing in the orchestrator tests.",
+      "tags": [
+        "test",
+        "pytest-class",
+        "mock-parser",
+        "deterministic"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "function:tests/test_parser.py:test_openrouter_parser_handles_malformed_json",
+      "type": "function",
+      "name": "test_openrouter_parser_handles_malformed_json",
+      "filePath": "tests/test_parser.py",
+      "lineRange": [
+        55,
+        72
+      ],
+      "summary": "Scripts the LLM endpoint to return malformed JSON and asserts OpenRouterParser raises ParseError instead of crashing — proves structured-output validation is doing its job.",
+      "tags": [
+        "test",
+        "openrouter",
+        "validation",
+        "error-path"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:tests/test_schemas.py",
+      "type": "file",
+      "name": "test_schemas.py",
+      "filePath": "tests/test_schemas.py",
+      "summary": "Pydantic schema tests covering happy path construction and Hypothesis property tests that fuzz NormalizedContact and ParsedRecord field constraints (confidence ∈ [0,1], non-empty source_id, etc.).",
+      "tags": [
+        "test",
+        "pytest",
+        "schema-test",
+        "property-test",
+        "hypothesis"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_schemas.py:TestSchemaInvariants",
+      "type": "class",
+      "name": "TestSchemaInvariants",
+      "filePath": "tests/test_schemas.py",
+      "lineRange": [
+        12,
+        50
+      ],
+      "summary": "Hypothesis-driven property tests over schema invariants: asserts validators reject confidence > 1.0, empty source_id, and malformed phone/email — locks the data contract.",
+      "tags": [
+        "test",
+        "hypothesis",
+        "property-test",
+        "schema"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "class:tests/test_schemas.py:TestEnumRoundTrip",
+      "type": "class",
+      "name": "TestEnumRoundTrip",
+      "filePath": "tests/test_schemas.py",
+      "lineRange": [
+        55,
+        85
+      ],
+      "summary": "Asserts SourceFormat and RecordStatus enums round-trip cleanly through Pydantic JSON serialization and the audit log's TEXT columns.",
+      "tags": [
+        "test",
+        "enum",
+        "serialization"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.env.example",
+      "type": "config",
+      "name": ".env.example",
+      "filePath": ".env.example",
+      "summary": "Documented template for the runtime environment: lists every Settings field (LLM provider/model, OpenRouter API key, CRM URL, fault rates, breaker thresholds, log level) with safe default values; copied to .env at install time.",
+      "tags": [
+        "configuration",
+        "env-config",
+        "documentation"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:pyproject.toml",
+      "type": "config",
+      "name": "pyproject.toml",
+      "filePath": "pyproject.toml",
+      "summary": "PEP 621 project manifest declaring the agentic-onboard package, all runtime + dev dependencies (pydantic, pydantic-settings, httpx, tenacity, typer, fastapi, uvicorn, pytest, hypothesis), the agentic-onboard console-script entry point, and tool config for ruff, mypy, pytest, and coverage.",
+      "tags": [
+        "configuration",
+        "build-system",
+        "dependencies",
+        "python-packaging"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "config:.gitleaks.toml",
+      "type": "config",
+      "name": ".gitleaks.toml",
+      "filePath": ".gitleaks.toml",
+      "summary": "Gitleaks configuration that allowlists known-safe placeholder strings in fixtures and the .env.example template so the security pipeline doesn't false-positive on demo material while still scanning the rest of the repo.",
+      "tags": [
+        "configuration",
+        "security",
+        "secret-scanning"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:.pre-commit-config.yaml",
+      "type": "config",
+      "name": ".pre-commit-config.yaml",
+      "filePath": ".pre-commit-config.yaml",
+      "summary": "Pre-commit hooks running ruff, ruff-format, mypy, and gitleaks on every commit so style + type + secret checks run locally before they ever reach CI.",
+      "tags": [
+        "configuration",
+        "ci-cd",
+        "linting",
+        "developer-experience"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:samples/02-crm-export.json",
+      "type": "config",
+      "name": "02-crm-export.json",
+      "filePath": "samples/02-crm-export.json",
+      "summary": "Sample fixture: structured CRM export JSON used to exercise the parser's structured-input path; one of the 8 fixtures fed to the orchestrator demo.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "json",
+        "test-data"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "config:samples/04-handwritten-form.ocr.json",
+      "type": "config",
+      "name": "04-handwritten-form.ocr.json",
+      "filePath": "samples/04-handwritten-form.ocr.json",
+      "summary": "Sample fixture: OCR'd handwritten contact form (low-confidence path) used to prove the orchestrator routes uncertain records to the DLQ for human review.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "ocr",
+        "low-confidence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:README.md",
+      "type": "document",
+      "name": "README.md",
+      "filePath": "README.md",
+      "summary": "Top-level project README: assignment context, architecture diagram (Mermaid), quickstart commands (Makefile recipes), sample run output, design rationale, and trade-off notes — the canonical document a UnifyApps reviewer reads first.",
+      "tags": [
+        "documentation",
+        "entry-point",
+        "overview",
+        "quickstart"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:ARCHITECTURE.md",
+      "type": "document",
+      "name": "ARCHITECTURE.md",
+      "filePath": "ARCHITECTURE.md",
+      "summary": "Architecture deep-dive: per-record sequence diagram, failure-mode matrix (transient/permanent/breaker/parse/duplicate paths), threat model, and the design rationale for the circuit breaker, idempotency, and write-before-step audit policy.",
+      "tags": [
+        "documentation",
+        "architecture",
+        "sequence-diagram",
+        "threat-model"
+      ],
+      "complexity": "complex"
+    },
+    {
+      "id": "document:samples/05-freeform-note.txt",
+      "type": "document",
+      "name": "05-freeform-note.txt",
+      "filePath": "samples/05-freeform-note.txt",
+      "summary": "Sample fixture: free-form text note about a contact, used to exercise the LLM parser on unstructured prose — typical input class for the assignment.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "unstructured",
+        "freeform"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "document:samples/06-ambiguous-snippet.txt",
+      "type": "document",
+      "name": "06-ambiguous-snippet.txt",
+      "filePath": "samples/06-ambiguous-snippet.txt",
+      "summary": "Sample fixture: deliberately ambiguous text that the parser should mark low-confidence; pairs with the OCR fixture to demonstrate the human-review escalation path.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "ambiguous",
+        "low-confidence"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "service:Dockerfile",
+      "type": "service",
+      "name": "Dockerfile",
+      "filePath": "Dockerfile",
+      "summary": "Multi-stage Docker build producing a minimal Python 3.12-slim image: a builder stage installs the project with uv/pip then copies the compiled wheel into a runtime stage running as a non-root user. Used by docker-compose to ship the agentic-onboard CLI alongside the mock CRM.",
+      "tags": [
+        "containerization",
+        "infrastructure",
+        "deployment",
+        "multi-stage"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "service:docker-compose.yml",
+      "type": "service",
+      "name": "docker-compose.yml",
+      "filePath": "docker-compose.yml",
+      "summary": "Compose stack with two services: mock-crm (the FastAPI fault-injecting CRM on :8000) and agentic-onboard (the CLI runner) — wired so an operator can `docker compose up` the whole demo with one command.",
+      "tags": [
+        "orchestration",
+        "infrastructure",
+        "compose",
+        "deployment"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "service:Makefile",
+      "type": "service",
+      "name": "Makefile",
+      "filePath": "Makefile",
+      "summary": "Operator-facing Makefile with targets for the everyday loop: install, lint, format, type-check, test, run-mock-crm, run, dlq-list, dlq-replay, audit, demo (full end-to-end), and ci-local — the recipes the README points to.",
+      "tags": [
+        "build-system",
+        "developer-experience",
+        "automation"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "pipeline:.github/workflows/ci.yml",
+      "type": "pipeline",
+      "name": "ci.yml",
+      "filePath": ".github/workflows/ci.yml",
+      "summary": "GitHub Actions CI workflow: matrix-runs ruff, ruff-format --check, mypy --strict, and pytest with 70% coverage gate on every push/PR — the green-check that says the codebase still builds.",
+      "tags": [
+        "ci-cd",
+        "github-actions",
+        "testing",
+        "quality-gate"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "pipeline:.github/workflows/security.yml",
+      "type": "pipeline",
+      "name": "security.yml",
+      "filePath": ".github/workflows/security.yml",
+      "summary": "GitHub Actions security workflow: runs gitleaks against the repo, pip-audit against pinned dependencies, and a CodeQL scan for Python — independent of CI so a security regression doesn't block code merges and vice-versa.",
+      "tags": [
+        "ci-cd",
+        "security",
+        "github-actions",
+        "secret-scanning"
+      ],
+      "complexity": "moderate"
+    },
+    {
+      "id": "table:samples/03-csv-row.csv",
+      "type": "table",
+      "name": "03-csv-row.csv",
+      "filePath": "samples/03-csv-row.csv",
+      "summary": "Sample fixture: single-row CSV with header, simulating a CRM export row format used to exercise the parser's tabular-input path.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "csv",
+        "tabular"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "table:samples/07-spreadsheet-paste.csv",
+      "type": "table",
+      "name": "07-spreadsheet-paste.csv",
+      "filePath": "samples/07-spreadsheet-paste.csv",
+      "summary": "Sample fixture: pasted-from-spreadsheet CSV with messy whitespace; used to exercise the parser's normalization on real-world clipboard data.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "csv",
+        "tabular"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:samples/01-email-thread.eml",
+      "type": "file",
+      "name": "01-email-thread.eml",
+      "filePath": "samples/01-email-thread.eml",
+      "summary": "Sample fixture: RFC 822 email thread from a prospective contact — the canonical input format for the assignment's first scenario.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "email",
+        "eml"
+      ],
+      "complexity": "simple"
+    },
+    {
+      "id": "file:samples/08-replay-of-01.eml",
+      "type": "file",
+      "name": "08-replay-of-01.eml",
+      "filePath": "samples/08-replay-of-01.eml",
+      "summary": "Sample fixture: identical content to 01-email-thread.eml but a separate file — paired with #01 to demonstrate idempotency: two ingests, one CRM row.",
+      "tags": [
+        "fixture",
+        "sample-data",
+        "email",
+        "idempotency-demo"
+      ],
+      "complexity": "simple"
+    }
+  ],
+  "edges": [
+    {
+      "source": "file:src/agentic_onboard/settings.py",
+      "target": "class:src/agentic_onboard/settings.py:Settings",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/logging_config.py",
+      "target": "class:src/agentic_onboard/logging_config.py:JsonFormatter",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/logging_config.py",
+      "target": "function:src/agentic_onboard/logging_config.py:configure_logging",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/schemas.py",
+      "target": "class:src/agentic_onboard/schemas.py:RawDocument",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/schemas.py",
+      "target": "class:src/agentic_onboard/schemas.py:ParsedRecord",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/schemas.py",
+      "target": "class:src/agentic_onboard/schemas.py:NormalizedContact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/schemas.py",
+      "target": "class:src/agentic_onboard/schemas.py:CRMUpsertRequest",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/schemas.py",
+      "target": "class:src/agentic_onboard/schemas.py:RunStats",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/ingest.py",
+      "target": "class:src/agentic_onboard/ingest.py:Ingester",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/ingest.py",
+      "target": "class:src/agentic_onboard/ingest.py:FileIngester",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/ingest.py",
+      "target": "class:src/agentic_onboard/ingest.py:S3Ingester",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/ingest.py",
+      "target": "file:src/agentic_onboard/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/circuit_breaker.py",
+      "target": "class:src/agentic_onboard/circuit_breaker.py:CircuitState",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/circuit_breaker.py",
+      "target": "class:src/agentic_onboard/circuit_breaker.py:CircuitOpenError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/circuit_breaker.py",
+      "target": "class:src/agentic_onboard/circuit_breaker.py:CircuitBreaker",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "class:src/agentic_onboard/crm_client.py:CRMTransientError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "class:src/agentic_onboard/crm_client.py:CRMPermanentError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "class:src/agentic_onboard/crm_client.py:CRMClient",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/audit.py",
+      "target": "class:src/agentic_onboard/audit.py:AuditStore",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/audit.py",
+      "target": "function:src/agentic_onboard/audit.py:open_audit_store",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "class:src/agentic_onboard/parser.py:Parser",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "class:src/agentic_onboard/parser.py:ParseError",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "class:src/agentic_onboard/parser.py:OpenRouterParser",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "class:src/agentic_onboard/parser.py:MockParser",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/circuit_breaker.py",
+      "target": "file:src/agentic_onboard/logging_config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "file:src/agentic_onboard/circuit_breaker.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "file:src/agentic_onboard/logging_config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "file:src/agentic_onboard/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "file:src/agentic_onboard/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/audit.py",
+      "target": "file:src/agentic_onboard/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "file:src/agentic_onboard/logging_config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "file:src/agentic_onboard/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "file:src/agentic_onboard/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "class:src/agentic_onboard/orchestrator.py:Orchestrator",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "function:src/agentic_onboard/orchestrator.py:run_pipeline",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "function:src/agentic_onboard/cli.py:run",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "function:src/agentic_onboard/cli.py:dlq_list",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "function:src/agentic_onboard/cli.py:dlq_replay",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "function:src/agentic_onboard/cli.py:audit",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/mock_crm/server.py",
+      "target": "function:src/mock_crm/server.py:upsert_contact",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/mock_crm/server.py",
+      "target": "function:src/mock_crm/server.py:health",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/mock_crm/server.py",
+      "target": "function:src/mock_crm/server.py:reset",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/audit.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/crm_client.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/ingest.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/logging_config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:src/agentic_onboard/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/audit.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/crm_client.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/ingest.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/logging_config.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/orchestrator.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/schemas.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/cli.py",
+      "target": "file:src/agentic_onboard/settings.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:tests/conftest.py",
+      "target": "function:tests/conftest.py:audit_store",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/conftest.py",
+      "target": "function:tests/conftest.py:mock_crm_client",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_audit.py",
+      "target": "class:tests/test_audit.py:TestAuditLifecycle",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_audit.py",
+      "target": "class:tests/test_audit.py:TestDlq",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_circuit_breaker.py",
+      "target": "class:tests/test_circuit_breaker.py:TestCircuitBreaker",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_crm_client.py",
+      "target": "class:tests/test_crm_client.py:TestCRMClientRetries",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_crm_client.py",
+      "target": "function:tests/test_crm_client.py:test_breaker_opens_after_repeated_failures",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_ingest.py",
+      "target": "class:tests/test_ingest.py:TestFileIngester",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_logging_redaction.py",
+      "target": "function:tests/test_logging_redaction.py:test_api_key_is_redacted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_logging_redaction.py",
+      "target": "function:tests/test_logging_redaction.py:test_bearer_token_is_redacted",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_mock_crm.py",
+      "target": "class:tests/test_mock_crm.py:TestMockCRM",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_mock_crm.py",
+      "target": "class:tests/test_mock_crm.py:TestFaultInjection",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_orchestrator.py",
+      "target": "class:tests/test_orchestrator.py:TestOrchestratorHappyPath",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_orchestrator.py",
+      "target": "class:tests/test_orchestrator.py:TestOrchestratorReplay",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_parser.py",
+      "target": "class:tests/test_parser.py:TestMockParser",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_parser.py",
+      "target": "function:tests/test_parser.py:test_openrouter_parser_handles_malformed_json",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_schemas.py",
+      "target": "class:tests/test_schemas.py:TestSchemaInvariants",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_schemas.py",
+      "target": "class:tests/test_schemas.py:TestEnumRoundTrip",
+      "type": "contains",
+      "direction": "forward",
+      "weight": 1
+    },
+    {
+      "source": "file:tests/test_crm_client.py",
+      "target": "file:tests/conftest.py",
+      "type": "imports",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "file:src/agentic_onboard/audit.py",
+      "target": "file:tests/test_audit.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/circuit_breaker.py",
+      "target": "file:tests/test_circuit_breaker.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/crm_client.py",
+      "target": "file:tests/test_crm_client.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/ingest.py",
+      "target": "file:tests/test_ingest.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/logging_config.py",
+      "target": "file:tests/test_logging_redaction.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/mock_crm/server.py",
+      "target": "file:tests/test_mock_crm.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/orchestrator.py",
+      "target": "file:tests/test_orchestrator.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/parser.py",
+      "target": "file:tests/test_parser.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:src/agentic_onboard/schemas.py",
+      "target": "file:tests/test_schemas.py",
+      "type": "tested_by",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "file:src/agentic_onboard/cli.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "file:src/agentic_onboard/orchestrator.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:README.md",
+      "target": "file:src/mock_crm/server.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:ARCHITECTURE.md",
+      "target": "file:src/agentic_onboard/circuit_breaker.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:ARCHITECTURE.md",
+      "target": "file:src/agentic_onboard/crm_client.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:ARCHITECTURE.md",
+      "target": "file:src/agentic_onboard/audit.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:ARCHITECTURE.md",
+      "target": "file:src/agentic_onboard/orchestrator.py",
+      "type": "documents",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:pyproject.toml",
+      "target": "file:src/agentic_onboard/__init__.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:pyproject.toml",
+      "target": "file:src/agentic_onboard/cli.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:pyproject.toml",
+      "target": "file:src/mock_crm/server.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:.env.example",
+      "target": "file:src/agentic_onboard/settings.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:.pre-commit-config.yaml",
+      "target": "file:src/agentic_onboard/__init__.py",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:.gitleaks.toml",
+      "target": "pipeline:.github/workflows/security.yml",
+      "type": "configures",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "file:src/agentic_onboard/cli.py",
+      "type": "deploys",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "file:src/agentic_onboard/orchestrator.py",
+      "type": "deploys",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "service:Dockerfile",
+      "target": "file:src/mock_crm/server.py",
+      "type": "deploys",
+      "direction": "forward",
+      "weight": 0.7
+    },
+    {
+      "source": "service:docker-compose.yml",
+      "target": "service:Dockerfile",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "service:Makefile",
+      "target": "file:src/agentic_onboard/cli.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "service:Makefile",
+      "target": "file:src/mock_crm/server.py",
+      "type": "depends_on",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "pipeline:.github/workflows/ci.yml",
+      "target": "file:tests/__init__.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "pipeline:.github/workflows/security.yml",
+      "target": "file:src/agentic_onboard/__init__.py",
+      "type": "triggers",
+      "direction": "forward",
+      "weight": 0.6
+    },
+    {
+      "source": "config:samples/02-crm-export.json",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "config:samples/04-handwritten-form.ocr.json",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "table:samples/03-csv-row.csv",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "table:samples/07-spreadsheet-paste.csv",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:samples/05-freeform-note.txt",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "document:samples/06-ambiguous-snippet.txt",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:samples/01-email-thread.eml",
+      "target": "file:src/agentic_onboard/parser.py",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    },
+    {
+      "source": "file:samples/08-replay-of-01.eml",
+      "target": "file:samples/01-email-thread.eml",
+      "type": "related",
+      "direction": "forward",
+      "weight": 0.5
+    }
+  ],
+  "layers": [
+    {
+      "id": "layer:foundation",
+      "name": "Foundation",
+      "description": "Cross-cutting building blocks every other layer depends on: Pydantic data contracts (schemas.py), runtime configuration (settings.py), structured JSON logging with secret redaction (logging_config.py), and the package barrel.",
+      "nodeIds": [
+        "file:src/agentic_onboard/__init__.py",
+        "file:src/agentic_onboard/settings.py",
+        "file:src/agentic_onboard/logging_config.py",
+        "file:src/agentic_onboard/schemas.py"
+      ]
+    },
+    {
+      "id": "layer:ingest",
+      "name": "Ingest",
+      "description": "Source-side of the pipeline: turns external files / S3 objects into RawDocument instances with source_id and content_hash already set, behind a single Ingester Protocol.",
+      "nodeIds": [
+        "file:src/agentic_onboard/ingest.py"
+      ]
+    },
+    {
+      "id": "layer:llm-parser",
+      "name": "LLM Parser",
+      "description": "LLM-driven parser layer that converts a RawDocument into a NormalizedContact + confidence + rationale. Two implementations sit behind one Parser Protocol: OpenRouterParser for production and MockParser for tests / offline demos.",
+      "nodeIds": [
+        "file:src/agentic_onboard/parser.py"
+      ]
+    },
+    {
+      "id": "layer:resilience",
+      "name": "Resilience",
+      "description": "The core production-engineering payload of the project: hand-rolled three-state circuit breaker + tenacity-driven exponential-backoff retries + sha256 idempotency keys, layered over httpx in the resilient CRM client.",
+      "nodeIds": [
+        "file:src/agentic_onboard/circuit_breaker.py",
+        "file:src/agentic_onboard/crm_client.py"
+      ]
+    },
+    {
+      "id": "layer:audit-dlq",
+      "name": "Audit & DLQ",
+      "description": "Crash-safe SQLite WAL-mode persistence for run lifecycle, the per-step audit log (write-before-step), and the dead-letter queue used by `cli dlq replay` to retry failed records without losing idempotency guarantees.",
+      "nodeIds": [
+        "file:src/agentic_onboard/audit.py"
+      ]
+    },
+    {
+      "id": "layer:orchestration",
+      "name": "Orchestration",
+      "description": "The agentic workflow itself: a single Orchestrator class wires ingest → parser → CRM upsert → audit, gates on confidence, routes terminal failures to the DLQ, and tallies RunStats. The Typer CLI exposes run/dlq/audit commands on top of it.",
+      "nodeIds": [
+        "file:src/agentic_onboard/orchestrator.py",
+        "file:src/agentic_onboard/cli.py"
+      ]
+    },
+    {
+      "id": "layer:mock-crm",
+      "name": "Mock CRM",
+      "description": "FastAPI test double that simulates a misbehaving legacy CRM: 429s, 503s, latency spikes, idempotency-key replay — used to prove the resilience layer holds end-to-end without depending on a real downstream.",
+      "nodeIds": [
+        "file:src/mock_crm/__init__.py",
+        "file:src/mock_crm/server.py"
+      ]
+    },
+    {
+      "id": "layer:tests",
+      "name": "Tests",
+      "description": "76 pytest tests covering the full system: unit tests, Hypothesis property tests on schemas, FastAPI TestClient integration tests against the mock CRM, and httpx.MockTransport-backed CRM client tests for the retry/breaker/idempotency story.",
+      "nodeIds": [
+        "file:tests/__init__.py",
+        "file:tests/conftest.py",
+        "file:tests/test_audit.py",
+        "file:tests/test_circuit_breaker.py",
+        "file:tests/test_crm_client.py",
+        "file:tests/test_ingest.py",
+        "file:tests/test_logging_redaction.py",
+        "file:tests/test_mock_crm.py",
+        "file:tests/test_orchestrator.py",
+        "file:tests/test_parser.py",
+        "file:tests/test_schemas.py"
+      ]
+    },
+    {
+      "id": "layer:configuration",
+      "name": "Configuration",
+      "description": "Project manifest and developer-experience configuration: pyproject.toml (deps + tool config), .env.example (every Settings knob documented), pre-commit hooks, gitleaks allowlist, and sample input fixtures used by both tests and the demo.",
+      "nodeIds": [
+        "config:pyproject.toml",
+        "config:.env.example",
+        "config:.pre-commit-config.yaml",
+        "config:.gitleaks.toml",
+        "config:samples/02-crm-export.json",
+        "config:samples/04-handwritten-form.ocr.json"
+      ]
+    },
+    {
+      "id": "layer:infrastructure",
+      "name": "Infrastructure",
+      "description": "Runnable surfaces: multi-stage Dockerfile, docker-compose stack wiring the CLI alongside the mock CRM, the Makefile that operators actually type, and the GitHub Actions CI + Security pipelines that gate every push.",
+      "nodeIds": [
+        "service:Dockerfile",
+        "service:docker-compose.yml",
+        "service:Makefile",
+        "pipeline:.github/workflows/ci.yml",
+        "pipeline:.github/workflows/security.yml"
+      ]
+    },
+    {
+      "id": "layer:documentation",
+      "name": "Documentation",
+      "description": "Reviewer-facing prose: README.md (assignment context, architecture diagram, sample run, design rationale) and ARCHITECTURE.md (sequence diagram, failure-mode matrix, threat model). The two documents that explain why this codebase is shaped the way it is.",
+      "nodeIds": [
+        "document:README.md",
+        "document:ARCHITECTURE.md"
+      ]
+    },
+    {
+      "id": "layer:fixtures",
+      "name": "Sample Fixtures",
+      "description": "Eight heterogeneous input samples (email, JSON CRM export, CSV row, OCR'd handwritten form, freeform note, ambiguous snippet, spreadsheet paste, idempotency-replay duplicate) covering the assignment's input variety and exercising every code path of the pipeline.",
+      "nodeIds": [
+        "file:samples/01-email-thread.eml",
+        "file:samples/08-replay-of-01.eml",
+        "table:samples/03-csv-row.csv",
+        "table:samples/07-spreadsheet-paste.csv",
+        "document:samples/05-freeform-note.txt",
+        "document:samples/06-ambiguous-snippet.txt"
+      ]
+    }
+  ],
+  "tour": [
+    {
+      "order": 1,
+      "title": "Project Overview",
+      "description": "Start with the README. It frames the assignment (UnifyApps FDSE: enterprise data + agentic workflow integration), shows the Mermaid architecture diagram, and gives you the one-command demo. The tour follows the same shape: ingest → parser → resilience → audit → orchestration → tests.",
+      "nodeIds": [
+        "document:README.md",
+        "document:ARCHITECTURE.md"
+      ]
+    },
+    {
+      "order": 2,
+      "title": "The Data Contracts",
+      "description": "Every other module talks in terms of these Pydantic models. RawDocument is what the ingester emits. ParsedRecord is what the parser returns. CRMUpsertRequest carries the idempotency key (sha256 of source_id + content_hash). RunStats is the run summary. Read schemas.py once and the rest of the codebase becomes obvious.",
+      "nodeIds": [
+        "file:src/agentic_onboard/schemas.py",
+        "class:src/agentic_onboard/schemas.py:RawDocument",
+        "class:src/agentic_onboard/schemas.py:ParsedRecord",
+        "class:src/agentic_onboard/schemas.py:NormalizedContact",
+        "class:src/agentic_onboard/schemas.py:CRMUpsertRequest",
+        "class:src/agentic_onboard/schemas.py:RunStats"
+      ]
+    },
+    {
+      "order": 3,
+      "title": "Configuration & Logging",
+      "description": "Two cross-cutting concerns. settings.py is a Pydantic-Settings singleton — every knob in the system has one declared field with an env-var binding. logging_config.py installs a JSON formatter + a SecretRedactionFilter so API keys never end up in CloudWatch.",
+      "nodeIds": [
+        "file:src/agentic_onboard/settings.py",
+        "class:src/agentic_onboard/settings.py:Settings",
+        "file:src/agentic_onboard/logging_config.py",
+        "class:src/agentic_onboard/logging_config.py:JsonFormatter",
+        "function:src/agentic_onboard/logging_config.py:configure_logging"
+      ]
+    },
+    {
+      "order": 4,
+      "title": "Source-Side: the Ingester Protocol",
+      "description": "The orchestrator does not know whether documents come from local disk or S3 — both ingesters satisfy the same Protocol and yield RawDocument. FileIngester is the one used in tests and the demo; S3Ingester is the production-shaped stub the assignment asks for.",
+      "nodeIds": [
+        "file:src/agentic_onboard/ingest.py",
+        "class:src/agentic_onboard/ingest.py:Ingester",
+        "class:src/agentic_onboard/ingest.py:FileIngester",
+        "class:src/agentic_onboard/ingest.py:S3Ingester"
+      ]
+    },
+    {
+      "order": 5,
+      "title": "The LLM Parser Layer",
+      "description": "Same Protocol pattern: Parser.parse(RawDocument) → ParsedRecord. OpenRouterParser does the real LLM call with structured-output JSON validation. MockParser returns canned ParsedRecord instances keyed by source_id — including one parse_failed and one low-confidence case so tests and the demo can prove every branch of the orchestrator works.",
+      "nodeIds": [
+        "file:src/agentic_onboard/parser.py",
+        "class:src/agentic_onboard/parser.py:Parser",
+        "class:src/agentic_onboard/parser.py:OpenRouterParser",
+        "class:src/agentic_onboard/parser.py:MockParser",
+        "class:src/agentic_onboard/parser.py:ParseError"
+      ]
+    },
+    {
+      "order": 6,
+      "title": "The Heart of the System: Circuit Breaker",
+      "description": "This is the principal-engineer-level payload. A hand-rolled three-state breaker (CLOSED / OPEN / HALF_OPEN), thread-safe, time.monotonic()-driven, opens after N consecutive failures, blocks calls for recovery_timeout, then permits exactly one probe. ARCHITECTURE.md walks the state machine in prose.",
+      "nodeIds": [
+        "file:src/agentic_onboard/circuit_breaker.py",
+        "class:src/agentic_onboard/circuit_breaker.py:CircuitState",
+        "class:src/agentic_onboard/circuit_breaker.py:CircuitOpenError",
+        "class:src/agentic_onboard/circuit_breaker.py:CircuitBreaker"
+      ]
+    },
+    {
+      "order": 7,
+      "title": "The Resilient CRM Client",
+      "description": "Where it all comes together: a CRMClient that layers tenacity exponential-backoff retries, the circuit breaker, and sha256 idempotency keys over httpx. CRMTransientError trips the breaker and triggers retry; CRMPermanentError fails fast and routes the record to the DLQ.",
+      "nodeIds": [
+        "file:src/agentic_onboard/crm_client.py",
+        "class:src/agentic_onboard/crm_client.py:CRMClient",
+        "class:src/agentic_onboard/crm_client.py:CRMTransientError",
+        "class:src/agentic_onboard/crm_client.py:CRMPermanentError"
+      ]
+    },
+    {
+      "order": 8,
+      "title": "Crash-Safe Audit + DLQ",
+      "description": "Every state transition writes to a SQLite WAL-mode audit log BEFORE the action runs (write-before-step). Combined with the (run_id, source_id) primary key, a crash mid-pipeline is fully observable post-mortem and replay is idempotent. Same store also holds the dead-letter queue.",
+      "nodeIds": [
+        "file:src/agentic_onboard/audit.py",
+        "class:src/agentic_onboard/audit.py:AuditStore",
+        "function:src/agentic_onboard/audit.py:open_audit_store"
+      ]
+    },
+    {
+      "order": 9,
+      "title": "The Agentic Workflow: Orchestrator",
+      "description": "One class wires the whole pipeline: iterate documents from the Ingester, parse via the Parser, gate on min_confidence, upsert via the resilient CRM client, audit every step, and route terminal failures to the DLQ. The 'agent' is this loop — bounded, observable, and resumable.",
+      "nodeIds": [
+        "file:src/agentic_onboard/orchestrator.py",
+        "class:src/agentic_onboard/orchestrator.py:Orchestrator",
+        "function:src/agentic_onboard/orchestrator.py:run_pipeline"
+      ]
+    },
+    {
+      "order": 10,
+      "title": "Operator Surface: the Typer CLI",
+      "description": "Four commands: `run` (full pipeline), `dlq list` (inspect failed records), `dlq replay` (retry — idempotency lets us replay safely), `audit` (paginate the SQLite log). This is what an operator actually types.",
+      "nodeIds": [
+        "file:src/agentic_onboard/cli.py",
+        "function:src/agentic_onboard/cli.py:run",
+        "function:src/agentic_onboard/cli.py:dlq_list",
+        "function:src/agentic_onboard/cli.py:dlq_replay",
+        "function:src/agentic_onboard/cli.py:audit"
+      ]
+    },
+    {
+      "order": 11,
+      "title": "Proving It Works: the Mock CRM",
+      "description": "A FastAPI test double that deliberately misbehaves: 429s with Retry-After, 503s with jitter, latency spikes — all knob-controlled. Without this, the resilience layer is theory. With it, the README's claim ('breaker opens, retries fire, DLQ holds the failures, replay is idempotent') is a thing we can demonstrate in a 90-second video.",
+      "nodeIds": [
+        "file:src/mock_crm/server.py",
+        "function:src/mock_crm/server.py:upsert_contact",
+        "function:src/mock_crm/server.py:health",
+        "function:src/mock_crm/server.py:reset"
+      ]
+    },
+    {
+      "order": 12,
+      "title": "Tests Prove Every Claim",
+      "description": "76 pytest tests cover unit (circuit breaker state machine, schema invariants via Hypothesis), integration (CRMClient retries + breaker via httpx.MockTransport), and end-to-end (full orchestrator run with idempotency replay). Coverage gate is 70%. All green in CI.",
+      "nodeIds": [
+        "file:tests/conftest.py",
+        "file:tests/test_circuit_breaker.py",
+        "file:tests/test_crm_client.py",
+        "file:tests/test_orchestrator.py",
+        "file:tests/test_audit.py",
+        "file:tests/test_schemas.py"
+      ]
+    },
+    {
+      "order": 13,
+      "title": "Build, Ship, and Gate",
+      "description": "Multi-stage Dockerfile + docker-compose stack lets you `docker compose up` the whole demo. The Makefile is the operator's everyday loop. GitHub Actions runs CI (lint + types + tests + coverage) and Security (gitleaks + pip-audit + CodeQL) on every push.",
+      "nodeIds": [
+        "service:Dockerfile",
+        "service:docker-compose.yml",
+        "service:Makefile",
+        "pipeline:.github/workflows/ci.yml",
+        "pipeline:.github/workflows/security.yml"
+      ]
+    },
+    {
+      "order": 14,
+      "title": "The Eight Sample Inputs",
+      "description": "Eight fixtures span the assignment's input variety: email thread, structured CRM JSON, CSV row, OCR'd handwritten form (low confidence → DLQ), freeform note, ambiguous snippet, spreadsheet paste, and an exact replay of the email thread (idempotency demo). The 8-in / 6-succeeded / 1-duplicate / 1-parse-failed run output is what the README shows.",
+      "nodeIds": [
+        "file:samples/01-email-thread.eml",
+        "config:samples/02-crm-export.json",
+        "table:samples/03-csv-row.csv",
+        "config:samples/04-handwritten-form.ocr.json",
+        "document:samples/05-freeform-note.txt",
+        "document:samples/06-ambiguous-snippet.txt",
+        "table:samples/07-spreadsheet-paste.csv",
+        "file:samples/08-replay-of-01.eml"
+      ]
+    }
+  ]
+}

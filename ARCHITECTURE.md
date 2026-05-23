@@ -1,86 +1,149 @@
 # Architecture
 
-This document is the deep-dive companion to the [README](README.md). It maps the data flow, walks through every resilience layer, lists the failure modes the system handles (and the ones it doesn't), and explains the architectural trade-offs.
+This document is the technical companion to the README. It explains what the
+assignment asked for, what the implementation does, why the design choices were
+made, and how the system behaves when the CRM or input data is unreliable.
 
 ---
 
-## 1. The end-to-end data flow
+## 1. Problem Framing
 
-A customer record's journey from "S3" to the CRM, in full:
+The assignment is not just "call an LLM." It is an integration problem:
+
+- The input source is S3-shaped enterprise data.
+- The input data is messy: emails, CSV rows, OCR, JSON exports, and notes.
+- The downstream CRM is legacy and undocumented.
+- The downstream CRM can rate-limit or fail.
+- The system must still update the client system safely.
+
+The core product risk is data trust. A bad parser can corrupt CRM records. A bad
+retry strategy can double-create customers. A bad failure strategy can silently
+drop records. The architecture is built around those risks.
+
+---
+
+## 2. Goals And Non-Goals
+
+Goals:
+
+- Provide a runnable end-to-end workflow.
+- Make the data path explicit and easy to review.
+- Parse messy documents into a strict customer schema.
+- Retry transient CRM failures without retrying permanent data errors.
+- Prevent duplicate CRM mutation during retries and replays.
+- Preserve an audit trail for every record.
+- Keep failed CRM pushes replayable through a DLQ.
+
+Non-goals for the assignment:
+
+- Build a production S3 connector with IAM and boto3.
+- Build a human-review UI.
+- Build a distributed worker system.
+- Add a full observability stack.
+- Hide the workflow behind a large agent framework.
+
+The non-goals are intentional. They keep the submission focused on the problem
+statement while leaving clean extension points for production.
+
+---
+
+## 3. System Overview
+
+```mermaid
+flowchart LR
+    S3[("S3 bucket<br/>demo: samples/")]:::source
+    Ingester[Ingester Protocol<br/>FileIngester / S3Ingester]:::stage
+    Parser[Parser Protocol<br/>OpenRouterParser / MockParser]:::stage
+    Schema[Pydantic<br/>ParsedCustomer]:::stage
+    Gate{{"confidence >= 0.8?"}}:::gate
+    Mapper[CRM Mapper<br/>dedup key]:::stage
+    Client[CRM Client<br/>retry + breaker]:::stage
+    CRM[("Legacy CRM<br/>POST /v0/customer.upsert")]:::sink
+
+    HR[/"human_review"/]:::side
+    DLQ[/"dead-letter queue"/]:::side
+    Audit[("audit_log")]:::side
+
+    S3 --> Ingester --> Parser --> Schema --> Gate
+    Gate -- "no" --> HR
+    Gate -- "yes" --> Mapper --> Client --> CRM
+    Parser -. "step logs" .-> Audit
+    Mapper -. "step logs" .-> Audit
+    Client -. "step logs" .-> Audit
+    Client -- "retry exhausted<br/>or circuit open" --> DLQ
+
+    classDef source fill:#1f2937,stroke:#374151,color:#f3f4f6
+    classDef sink fill:#0b3a52,stroke:#0e4a66,color:#f3f4f6
+    classDef stage fill:#0f172a,stroke:#1e293b,color:#e5e7eb
+    classDef gate fill:#831843,stroke:#9d174d,color:#fce7f3
+    classDef side fill:#1c1917,stroke:#292524,color:#fde68a
+```
+
+The orchestrator is the only place that knows the whole pipeline. Every other
+module has one job:
+
+| Module | Responsibility |
+|---|---|
+| `ingest.py` | Produce `RawDocument` objects from a source |
+| `parser.py` | Convert `RawDocument` into `ParsedCustomer` |
+| `schemas.py` | Enforce data contracts and compute CRM idempotency keys |
+| `orchestrator.py` | Run the per-record state machine |
+| `crm_client.py` | Call the CRM with retry, breaker, and idempotency |
+| `circuit_breaker.py` | Track downstream health |
+| `audit.py` | Persist audit rows and DLQ entries |
+| `mock_crm/server.py` | Simulate an unreliable legacy CRM |
+
+---
+
+## 4. End-To-End Record Flow
 
 ```mermaid
 sequenceDiagram
     autonumber
-    participant S3 as S3 (file fixtures)
+    participant Src as S3 or samples/
     participant Ing as Ingester
     participant Orch as Orchestrator
     participant Audit as audit_log
-    participant LLM as LLM Parser
-    participant Schema as Pydantic schema
+    participant LLM as Parser
     participant Map as Mapper
-    participant Cb as Circuit breaker
-    participant Ten as Tenacity retry
-    participant Http as httpx
+    participant CRMClient as CRMClient
     participant CRM as Legacy CRM
     participant DLQ as DLQ
-    participant HR as human_review
+    participant HR as Human review
 
-    Orch->>Audit: start_run() → run_id
+    Orch->>Audit: start_run()
     Orch->>Ing: list_documents()
     Ing-->>Orch: RawDocument
-
-    Orch->>Audit: log(step="ingested", status="in_progress")
-    Orch->>LLM: parse(doc)
-    LLM-->>Orch: ParsedCustomer (or ParseError)
+    Orch->>Audit: log ingested/in_progress
+    Orch->>LLM: parse(raw document)
 
     alt parse failed
-        Orch->>Audit: log(step="parsed", status="parse_failed", detail={error})
-        Orch-->>Orch: counter.parse_failed += 1; next doc
+        LLM-->>Orch: ParseError
+        Orch->>Audit: log parsed/parse_failed
     else parsed
-        Orch->>Audit: log(step="parsed", detail={confidence})
+        LLM-->>Orch: ParsedCustomer
+        Orch->>Audit: log parsed/in_progress
         alt confidence < 0.8
-            Orch->>HR: route to human review
-            Orch->>Audit: log(step="gated", status="human_review")
-            Orch-->>Orch: counter.human_review += 1; next doc
-        else confidence ≥ 0.8
-            Orch->>Schema: ParsedCustomer.validate (strict)
-            Orch->>Map: from_parsed(parsed)
-            Map-->>Orch: CRMUpsertRequest{..., dedup_key=sha256(...)}
-            Orch->>Audit: log(step="mapped", detail={dedup_key})
-
-            Orch->>Cb: before_call()
-            alt breaker open
-                Cb-->>Orch: CircuitOpenError
-                Orch->>DLQ: dlq_put(payload, last_error="breaker open")
-                Orch->>Audit: log(step="pushed", status="dlq")
-            else breaker closed/half-open
-                loop tenacity (max_attempts)
-                    Orch->>Ten: attempt
-                    Ten->>Http: POST /v0/customer.upsert (Idempotency-Key=dedup_key)
-                    Http->>CRM: HTTP request
-                    alt 200/201
-                        CRM-->>Http: success body
-                        Http-->>Ten: response
-                        Ten-->>Orch: success
-                        Orch->>Cb: record_success()
-                        Orch->>Audit: log(step="pushed", status="success")
-                    else 429/5xx
-                        CRM-->>Http: error
-                        Http-->>Ten: CRMRetriableError
-                        Note over Ten: backoff = exp(initial, max) + jitter
-                    else 4xx (other)
-                        CRM-->>Http: error
-                        Http-->>Ten: CRMPermanentError → reraise
-                        Orch->>HR: route to human review
-                        Orch->>Audit: log(step="pushed", status="human_review")
-                    end
-                end
-                alt all retries exhausted
-                    Ten-->>Orch: CRMRetriableError (final)
-                    Orch->>Cb: record_failure()
-                    Orch->>DLQ: dlq_put(payload, last_error)
-                    Orch->>Audit: log(step="pushed", status="dlq")
-                end
+            Orch->>HR: route for review
+            Orch->>Audit: log gated/human_review
+        else confidence >= 0.8
+            Orch->>Map: CRMUpsertRequest.from_parsed()
+            Map-->>Orch: request with dedup_key
+            Orch->>Audit: log mapped/in_progress
+            Orch->>CRMClient: upsert(request)
+            CRMClient->>CRM: POST with Idempotency-Key
+            alt success or duplicate
+                CRM-->>CRMClient: 200/201
+                CRMClient-->>Orch: CRMUpsertResponse
+                Orch->>Audit: log pushed/success
+            else retry exhausted or circuit open
+                CRMClient-->>Orch: terminal CRM error
+                Orch->>DLQ: persist payload + last_error
+                Orch->>Audit: log pushed/dlq
+            else permanent 4xx
+                CRMClient-->>Orch: CRMPermanentError
+                Orch->>HR: route for review
+                Orch->>Audit: log pushed/human_review
             end
         end
     end
@@ -88,259 +151,308 @@ sequenceDiagram
     Orch->>Audit: finalize_run(counters)
 ```
 
-The crucial property: **every state transition writes to `audit_log` *before* the operation that follows it**. So a power-cut mid-record always leaves the database in a state where you can see exactly what was in flight. This is the standard *outbox* pattern — write the intent, then act, then write the result.
+The record-level invariant is: one bad document cannot stop the rest of the
+run. Parse failures, permanent CRM rejections, and transient CRM outages are
+classified differently and routed differently.
 
 ---
 
-## 2. Module boundaries (the dependency graph)
+## 5. Data Contracts
 
-```mermaid
-graph TB
-    cli[cli.py<br/>Typer commands] --> orch[orchestrator.py<br/>agent loop]
-    orch --> ingest[ingest.py<br/>FileIngester / S3Ingester]
-    orch --> parser[parser.py<br/>OpenRouter / Mock]
-    orch --> client[crm_client.py<br/>resilient HTTP]
-    orch --> audit[audit.py<br/>SQLite]
-    client --> cb[circuit_breaker.py]
-    parser --> schemas[schemas.py<br/>Pydantic models]
-    client --> schemas
-    ingest --> schemas
-    audit --> schemas
-    all[every module] --> log[logging_config.py<br/>+ secret redactor]
-    all --> settings[settings.py<br/>Pydantic Settings]
+The pipeline moves through four main models:
 
-    subgraph external
-        s3[S3 / files]
-        llm[OpenRouter API]
-        crm[Mock CRM]
-        sqlite[SQLite file]
-    end
+```text
+RawDocument
+  source_id
+  format
+  body
+  ingested_at
 
-    ingest -.-> s3
-    parser -.-> llm
-    client -.-> crm
-    audit -.-> sqlite
+ParsedCustomer
+  source_id
+  customer_id
+  name
+  email
+  phone
+  company
+  address
+  notes
+  confidence
+
+CRMUpsertRequest
+  customer fields
+  dedup_key
+
+CRMUpsertResponse
+  customer_id
+  status
+  crm_record_id
+  received_at
 ```
 
-The arrows are *dependencies*. The orchestrator depends on **Protocols** (`Ingester`, `Parser`) — concrete implementations like `FileIngester`, `OpenRouterParser`, `MockParser` plug in via the factory functions in `ingest.py` and `parser.py`. Swapping S3 for filesystem, or OpenAI for Anthropic, is a one-class change. No code outside those two files knows or cares.
+Pydantic is used as the boundary between "LLM may be wrong" and "integration
+payload must be trusted." Invalid emails, invalid phone numbers, missing names,
+and unexpected fields fail early. The orchestrator then records the failure and
+continues.
 
 ---
 
-## 3. The five resilience patterns, expanded
+## 6. Parser Strategy
 
-### 3.1 Idempotency keys
+There are two parser implementations behind the same `Parser` protocol.
 
-**Problem:** the orchestrator may push the same record twice — for example, if the run is interrupted and resumed, or if S3 has a duplicate object, or if the LLM emits the same `customer_id` for two near-identical inputs. The CRM must not double-insert.
+`OpenRouterParser`:
 
-**Solution:** every `CRMUpsertRequest` carries a `dedup_key = sha256(canonical_payload)` where the canonical payload is `customer_id|name|email|phone|company|address|notes`. The client sends this in two places:
+- Uses the OpenAI-compatible SDK against OpenRouter.
+- Sends a strict extraction prompt.
+- Requests structured output in the shape of `ParsedCustomer`.
+- Re-validates with Pydantic after the model response.
+- Uses `temperature=0.0` for reproducibility.
 
-1. The HTTP `Idempotency-Key` header — the CRM uses this to short-circuit replays.
-2. The body — for the audit log.
+`MockParser`:
 
-The CRM's contract: a request whose `Idempotency-Key` it has seen returns `200 OK` with `status="duplicate"` and the *original* `crm_record_id`. No mutation happens. So replaying the entire run is safe.
+- Uses deterministic Python parsing and regexes.
+- Requires no API key.
+- Runs in CI and local demos.
+- Exercises the same downstream code path as the real parser.
 
-**Why hash the canonical payload, not just `customer_id`?** Because if a customer's email changes, we *do* want a new dedup key, so the CRM treats it as a real update. If we used the customer_id alone, a corrected email would silently not propagate.
+The mock parser is not pretending to be as capable as an LLM. It exists so the
+integration logic can be reviewed and tested without secrets, quota, network
+latency, or nondeterministic model behavior.
 
-**Tested in:** `tests/test_schemas.py::TestCRMUpsertRequest::test_dedup_key_is_deterministic` and friends.
+---
 
-### 3.2 Exponential backoff with jitter
+## 7. Why This Is Not LangChain Or LangGraph
 
-**Problem:** the legacy CRM rate-limits and 5xxs. Naive retry-immediately would hammer it. Synchronous retries with no jitter cause "thundering herd" when many clients all wait the same fixed delay.
+The "agent" decision in this assignment is narrow: extract a structured
+customer record from an unstructured document. After that, the system is normal
+integration engineering:
 
-**Solution:** [tenacity](https://tenacity.readthedocs.io/) `wait_exponential_jitter(initial, max, jitter)`. After failure `n`, wait `min(initial * 2^n, max) + uniform(0, jitter)` seconds. With our defaults (`initial=0.5s`, `max=8s`, `jitter=0.5s`) and 5 attempts, the worst-case wall time is about `0.5 + 1 + 2 + 4 + 8 = 15.5 seconds` of backoff per record, which is short enough to feel responsive in the demo but long enough to let a real CRM recover.
+- validate
+- gate
+- map
+- retry
+- audit
+- dead-letter
+- replay
 
-**Critical detail:** retries are scoped to `CRMRetriableError` (raised from 429 + 5xx + connection errors). 4xx-other-than-429 raises `CRMPermanentError` and bypasses retry — there's no point retrying a `422 unprocessable`. This separation is in `_RETRIABLE_STATUS = {429, 500, 502, 503, 504}` in `crm_client.py`.
+A graph framework would add vocabulary and callbacks around logic that is
+already clear as a typed state machine. The code intentionally keeps the LLM
+call small and keeps the reliability logic explicit.
 
-**Tested in:** `tests/test_crm_client.py::TestCRMClient::test_retries_429_then_succeeds`, `test_retries_503_then_succeeds`, `test_4xx_other_than_429_is_permanent`, `test_connection_error_is_retriable`.
+When a framework would make sense:
 
-### 3.3 Circuit breaker
+- The LLM needs to choose between multiple tools.
+- The LLM needs multi-step planning.
+- The workflow has dynamic branches that are not known upfront.
+- The system needs durable graph checkpointing across tool calls.
 
-**Problem:** if the CRM is *actually* down for hours, retrying every record exhausts every client thread on the same broken downstream. We waste time, blow through rate limits trying to retry, and produce a useless run.
+That is not the main risk in this assignment. The main risk is safe enterprise
+system integration.
 
-**Solution:** a hand-rolled three-state breaker in `circuit_breaker.py`. After `failure_threshold` consecutive failures, the breaker opens. Subsequent calls fast-fail with `CircuitOpenError` and never even open the socket — the orchestrator routes them to the DLQ.
+---
 
-After `reset_after_s` seconds the breaker transitions to `HALF_OPEN`. The next call is a *probe*: if it succeeds, the breaker closes (and the failure counter resets). If it fails, the breaker re-opens immediately and the cooldown restarts.
+## 8. CRM Resilience Design
 
-**State machine:**
+The CRM client has four layers:
+
+```text
+upsert(request)
+  -> circuit_breaker.before_call()
+  -> tenacity retry loop
+  -> httpx POST /v0/customer.upsert
+  -> translate HTTP result into typed success/error
+```
+
+Retry policy:
+
+- Retry `429`, `500`, `502`, `503`, `504`.
+- Retry connection-level `httpx.HTTPError`.
+- Use exponential backoff with jitter.
+- Do not retry permanent `4xx` errors other than `429`.
+
+Why this matters:
+
+- Retrying `429` and `5xx` helps with temporary CRM instability.
+- Jitter avoids every worker retrying at the same time.
+- Not retrying `422` or `400` avoids wasting attempts on bad data.
+- Separating transient and permanent errors makes downstream behavior easier to
+  reason about.
+
+Circuit breaker states:
 
 ```mermaid
 stateDiagram-v2
-    [*] --> CLOSED: initial
+    [*] --> CLOSED
     CLOSED --> CLOSED: record_success
-    CLOSED --> CLOSED: record_failure (count < threshold)
-    CLOSED --> OPEN: record_failure (count == threshold)
-    OPEN --> OPEN: before_call → CircuitOpenError
+    CLOSED --> CLOSED: record_failure below threshold
+    CLOSED --> OPEN: failures reach threshold
+    OPEN --> OPEN: before_call fast-fails
     OPEN --> HALF_OPEN: cooldown elapsed
-    HALF_OPEN --> CLOSED: record_success
-    HALF_OPEN --> OPEN: record_failure
+    HALF_OPEN --> CLOSED: probe succeeds
+    HALF_OPEN --> OPEN: probe fails
 ```
 
-**Why hand-rolled?** Twenty lines is twenty lines; pulling in `pybreaker` would add a dependency, an opinion, and a layer of indirection for negative reviewer benefit. The recruiter can read the state machine in one pass.
-
-**Tested in:** `tests/test_circuit_breaker.py` covers all six transitions.
-
-### 3.4 DLQ (dead-letter queue)
-
-**Problem:** transient errors are retried; permanent errors are routed; but what about the record that fails *after* every retry, or hits a tripped breaker? Dropping it would silently lose data. Aborting the run would block the other 99 records.
-
-**Solution:** a `dlq` table in SQLite. Every record that exhausts retries (or hits the breaker) gets inserted with:
-
-```sql
-CREATE TABLE dlq (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_id        TEXT NOT NULL,
-    source_id     TEXT NOT NULL,
-    customer_id   TEXT,
-    payload       TEXT NOT NULL,        -- JSON of CRMUpsertRequest
-    last_error    TEXT NOT NULL,
-    attempt_count INTEGER NOT NULL DEFAULT 0,
-    created_at    TEXT NOT NULL,
-    last_tried_at TEXT NOT NULL,
-    next_retry_at TEXT,
-    UNIQUE(run_id, source_id)
-);
-```
-
-The `UNIQUE(run_id, source_id)` makes `dlq_put` an upsert — re-running with the same source bumps `attempt_count` instead of duplicating the row.
-
-**Replay:** `agentic-onboard dlq replay` re-attempts every entry through the same `CRMClient` with the same idempotency keys. Records that succeed are popped from the DLQ; the rest stay (with their `attempt_count` incremented) for the next replay.
-
-**Tested in:** `tests/test_audit.py::TestDLQ` and `tests/test_orchestrator.py::test_replay_dlq_succeeds_on_recovered_crm`.
-
-### 3.5 Audit log
-
-**Problem:** when the CRM team asks "what did your pipeline send us yesterday at 14:23?", the answer needs to be authoritative, not "checking my logs…".
-
-**Solution:** `audit_log` table. Every step writes a row *before* the step runs. Schema:
-
-```sql
-CREATE TABLE audit_log (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    run_id      TEXT NOT NULL,
-    source_id   TEXT NOT NULL,
-    customer_id TEXT,
-    step        TEXT NOT NULL,    -- 'ingested' | 'parsed' | 'mapped' | 'pushed' | 'gated' | 'failed'
-    status      TEXT NOT NULL,    -- RecordStatus value or 'in_progress'
-    detail      TEXT,             -- JSON
-    occurred_at TEXT NOT NULL
-);
-```
-
-`agentic-onboard audit <run_id>` prints the full timeline for one run. Indexes on `run_id`, `source_id`, and `step` make the common queries fast.
-
-**Tested in:** `tests/test_audit.py`.
+The breaker is there for sustained downstream failure. Retries are useful for a
+few bad responses. A circuit breaker is useful when the dependency is unhealthy
+for longer than one record.
 
 ---
 
-## 4. The "agent loop" — why it's deliberately not a framework
+## 9. Idempotency Design
 
-The handoff doc was specific: don't reach for LangChain / LangGraph / CrewAI. Here's why that matters in practice.
+Retries can create duplicates if the CRM accepts a request but the client loses
+the response. The solution is an idempotency key.
 
-The "AI agent" in this pipeline is exactly one decision: *given a raw document, produce a structured `Customer`*. Everything else — ingest, validation, mapping, retry, breaker, DLQ, audit — is deterministic plumbing that an "agent framework" would *obscure*, not enable.
+`CRMUpsertRequest.from_parsed()` computes:
 
-What you'd lose by introducing LangGraph here:
+```text
+sha256(customer_id | name | email | phone | company | address | notes)
+```
 
-- A `for doc in ingester` becomes a "graph definition" with nodes, edges, and a cryptic `state` dict.
-- The error-routing decision tree (`ParseError → parse_failed`, `low confidence → human_review`, `CRMRetriableError → DLQ`, `CRMPermanentError → human_review`) becomes a callback hidden inside a `conditional_edge`.
-- The audit log's "write before, then act" pattern becomes a custom `MemorySaver` subclass.
-- The recruiter, reading the codebase, has to learn LangGraph's mental model before they can read your code.
+That value is sent in the `Idempotency-Key` header and stored in the body.
 
-What you'd gain: nothing this pipeline needs.
+Why use the canonical payload instead of only `customer_id`:
 
-When *would* an agent framework earn its keep? When the LLM is making *sequential decisions with tool use* — calling `search_customer`, then `validate_address`, then `propose_merge` — and you need a graph to express the planning loop. That's not this. The LLM here is a single-call structured-output extractor. Plain Python is the right tool.
+- Same payload replay: same key, no duplicate mutation.
+- Corrected payload: different key, CRM can apply a real update.
+- Duplicate S3 object: same key, safe no-op in the CRM.
 
-This is the FDSE judgment call the prompt is asking us to make.
+The mock CRM stores seen keys. A repeated request returns `200` with
+`status="duplicate"` and the original `crm_record_id`.
 
 ---
 
-## 5. Failure modes and how the system handles them
+## 10. Audit Log And DLQ
 
-| Failure | Where it surfaces | What the system does |
+The audit log is write-before-act. The orchestrator writes an `in_progress` row
+before a step runs, then writes the terminal outcome after that step resolves.
+
+This gives three benefits:
+
+- A crash leaves evidence of what was in flight.
+- A reviewer can inspect the path each document took.
+- Replays are easier because successful CRM mutations are idempotent.
+
+DLQ entries contain:
+
+- run id
+- source id
+- customer id
+- original CRM payload
+- last error
+- attempt count
+- timestamps
+
+Replay uses the same `CRMClient`, which means the same idempotency key,
+retry policy, and circuit breaker behavior apply.
+
+---
+
+## 11. Failure Matrix
+
+| Failure | Where it appears | System behavior |
 |---|---|---|
-| S3 object unreadable (binary, weird encoding) | `FileIngester.list_documents` | Skipped silently (`UnicodeDecodeError`). A real S3 backend would route to a separate raw-blob queue. |
-| LLM emits invalid JSON / wrong schema | `parser.py` Pydantic `ValidationError` | Caught, raised as `ParseError`, recorded as `parse_failed`. Run continues. |
-| LLM extraction is technically valid but uncertain | `confidence < 0.8` check in orchestrator | Record routes to `human_review`, never hits the CRM. |
-| LLM provider 5xx or rate-limited | `OpenRouterParser.parse` | Currently raises `ParseError` (no retry on the LLM call). Trade-off: keep the LLM call simple; orchestrator's parse_failed path handles it. A future improvement: wrap the LLM call in tenacity too. |
-| CRM 429 / 5xx (transient) | `crm_client._do_upsert` raises `CRMRetriableError` | Tenacity retries with exp+jitter; on success, life goes on; on exhaustion, DLQ. |
-| CRM 4xx other than 429 (permanent) | `crm_client._do_upsert` raises `CRMPermanentError` | Skipped retry, routed to `human_review`, breaker *not* tripped. |
-| CRM connection refused / DNS / timeout | `httpx.HTTPError` caught by `_do_upsert` | Treated as transient; retried. |
-| Many CRM failures in a row | Circuit breaker trips after threshold | Subsequent records fast-fail to DLQ until cooldown elapses. |
-| Process crashes mid-run | OS kill, hardware failure | Audit log has every step's pre-write. Re-running the same `samples/` directory is safe — idempotency keys make every successful upsert a no-op replay. |
-| CRM accepts the request but loses the response | Network partition after the CRM has mutated | Retry with the same idempotency key; CRM returns `status="duplicate"` and the original `crm_record_id`. No double-insert. |
-| OpenRouter quota exhausted mid-run | `OpenRouterParser.parse` raises | Each affected record is `parse_failed`; switching to `LLM_PROVIDER=mock` keeps the run going. |
-| Disk full mid-audit-write | `sqlite3.OperationalError` | Run aborts cleanly; the `with audit:` cleanup logic in the CLI ensures no half-open file handles. Existing audit data is intact (WAL mode). |
+| Unreadable local object | `FileIngester` | Skip binary/unreadable file in demo |
+| LLM output invalid | `Parser` / Pydantic | Raise `ParseError`, log `parse_failed`, continue |
+| Low confidence extraction | `Orchestrator` | Route to `human_review`, do not call CRM |
+| CRM `429` | `CRMClient` | Retry with backoff and jitter |
+| CRM `503` or other retryable `5xx` | `CRMClient` | Retry with backoff and jitter |
+| CRM connection error | `CRMClient` | Retry as transient |
+| CRM `422` or permanent `4xx` | `CRMClient` | Route to `human_review`, do not trip breaker |
+| Retry exhaustion | `CRMClient` -> `Orchestrator` | Persist to DLQ |
+| Circuit breaker open | `CircuitBreaker` | Fast-fail to DLQ without socket call |
+| Duplicate S3 record | CRM idempotency | Return `duplicate`, no second mutation |
+| Process crash mid-record | Audit log | Last logged step shows where it stopped |
 
 ---
 
-## 6. Threat model (security)
+## 12. Runtime And Demo Expectations
 
-The repo is public on GitHub and ships with real-credential code paths. The threat model assumes:
+During the demo, `make mock-crm` starts a FastAPI API server on port `8765`.
+The server intentionally injects faults:
 
-- **GitHub crawlers + bots** scraping public repos for committed secrets.
-- **Recruiters** running `git clone && make run` on their laptop.
-- **Curious developers** poking at the audit DB.
-- **Compromised dev laptop** (some attacker who got file-system access).
-- **Future me** copying-pasting code without thinking.
+- default `429` rate: `10%`
+- default `503` rate: `5%`
+- default latency: `20-120 ms`
 
-Defenses, layered:
+That means the terminal may show `429` or `503` responses. This is expected.
+The interesting signal is whether `make run-mock-llm` completes and prints the
+summary table.
 
-1. **`.gitignore`** blocks `.env`, `*.key`, `*.pem`, `secrets/`. Only `.env.example` (placeholders) is in repo.
-2. **Pydantic `SecretStr`** wraps the API key in memory; printing the settings prints `SecretStr('**********')`.
-3. **structlog redaction processor** strips OpenAI/OpenRouter/Anthropic/Bearer/JWT-shaped strings from every log event before rendering. Tested against six formats. Even if a stack trace catches a key string, it never lands on disk.
-4. **Stdlib `logging` is bridged through the same redactor** so httpx/uvicorn logs are also scrubbed.
-5. **Pre-commit hook** runs `gitleaks` so a leak is caught locally before `git push`.
-6. **GitHub Push Protection** is on by default for public repos; if local protection fails, GitHub's would catch a sk-or-v… push.
-7. **GitHub Actions Security workflow** runs `gitleaks-action` + `CodeQL` on every PR + weekly cron.
-8. **CI runs against the mock LLM** (`LLM_PROVIDER=mock`) — `OPENROUTER_API_KEY` never enters Actions.
-9. **Docker image** does not `COPY .env`. Secrets are mounted at runtime via `docker-compose` env vars.
-10. **Audit DB is gitignored** (`*.db`). It contains parsed customer data.
+The mock CRM has no homepage. These browser routes are expected:
 
-Out of scope for this 6-hour project:
-
-- Hardware security modules / KMS.
-- mTLS to the legacy CRM.
-- Audit log signing / tamper-evidence (would use append-only SQLite + hashes).
-- Customer PII redaction (the audit log stores the parsed customer record verbatim; a real deployment would tokenize fields before persisting).
+| URL | Expected |
+|---|---|
+| `/` | `404 {"detail":"Not Found"}` |
+| `/health` | `{"status":"ok"}` |
+| `/docs` | FastAPI docs |
+| `/v0/admin/records` | CRM records created during the run |
 
 ---
 
-## 7. Performance characteristics
+## 13. Production Extension Path
 
-A single demo run (8 documents, mock LLM, mock CRM with 15% fault injection):
+If this became a real client deployment, the next changes would be local and
+predictable:
 
-| Stage | Wall time | Notes |
-|---|---|---|
-| Ingest 8 files | ~5 ms | Local filesystem, sequential read |
-| Parse 8 documents (mock) | ~10 ms | Pure regex |
-| Parse 8 documents (gpt-4o-mini) | ~3-6 s | Network-bound, single-threaded |
-| Push 8 records (with fault retries) | ~500-700 ms | Includes ~1-2 retries on average |
-| Audit + DLQ writes | ~30 ms | SQLite WAL, one row per step ≈ 40 rows |
-| **Total (mock LLM)** | **~600 ms** | |
-| **Total (gpt-4o-mini)** | **~5-7 s** | |
+| Demo component | Production replacement |
+|---|---|
+| `FileIngester` | `S3Ingester` using boto3 paginator and object reads |
+| SQLite audit store | Postgres or warehouse-backed audit tables |
+| Per-process circuit breaker | Redis-backed or platform-managed breaker state |
+| Local process | Worker deployment with queue-based fanout |
+| Mock CRM | Client CRM base URL and auth |
+| Human-review status | Review queue plus small internal UI |
+| Structlog stdout | OpenTelemetry or SIEM log shipping |
 
-Throughput would be N× higher with `asyncio.gather` over the LLM and CRM calls; the demo keeps it sequential for readability. The change is local — the orchestrator's `_handle_one` becomes `async def` and the for-loop becomes an async-gather. No structural rework.
-
----
-
-## 8. What's deliberately out of scope
-
-Listed honestly because honest scoping is what makes a senior engineer believable.
-
-- **Real S3.** The `Ingester` Protocol is implemented over the local filesystem; an `S3Ingester` stub in `ingest.py` documents the boto3 swap (one class, ~10 lines). Decision-by-design (the user said "local fixtures only").
-- **Production-grade observability.** Logs are structured (structlog) and audit data is in SQLite; a real deployment would ship logs to OpenTelemetry → SIEM and audit data to Postgres. Both are one-class changes.
-- **Multi-tenant rate limiting.** The breaker is per-process. A real deployment would share state via Redis (or use the platform's own limiter).
-- **LLM cost tracking + budget cap.** OpenRouter's dashboard handles this for the demo's volume (~$0.0001 per document). A real deployment would emit cost metrics per run.
-- **Human-review UI.** The "human review" queue is a status in the audit log; a UI is out of scope.
-- **Multiple LLM providers in flight.** The factory is a hard branch. A real deployment would have a router that prefers OpenAI for some doc formats and Anthropic for others, or falls through on quota exhaustion. Trivial to add.
+The interfaces are already separated so these are implementation swaps, not a
+rewrite of the orchestrator.
 
 ---
 
-## 9. References
+## 14. Security And Secrets
 
-- *Release It! Design and Deploy Production-Ready Software* — Michael T. Nygard. Where I learned the circuit-breaker pattern.
-- [Tenacity docs](https://tenacity.readthedocs.io/) — exponential backoff, jitter, retry policies.
-- [Stripe API: Idempotent Requests](https://stripe.com/docs/api/idempotent_requests) — the canonical reference for idempotency keys.
-- [Outbox pattern](https://microservices.io/patterns/data/transactional-outbox.html) — write-before-act, the audit log's design rationale.
-- [OpenAI structured outputs](https://platform.openai.com/docs/guides/structured-outputs) — the schema-coercion mechanism the LLM parser uses.
-- [Pydantic Settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) — single-source-of-truth config.
-- [structlog](https://www.structlog.org/) — structured logging, the substrate for the secret redactor.
+Security controls in the repo:
+
+- `.env` is gitignored.
+- `.env.example` contains placeholders.
+- API keys are read from environment variables.
+- Settings use Pydantic `SecretStr`.
+- Log redaction catches common API-key, bearer-token, and JWT shapes.
+- CI runs the mock parser, not the real LLM path.
+- Security workflow runs Gitleaks and CodeQL.
+
+Known production gaps:
+
+- Audit rows are not tamper-evident.
+- Parsed PII is stored in the local audit DB.
+- CRM auth is not modeled in the mock.
+- mTLS, KMS, and retention policies are out of scope for this assignment.
+
+---
+
+## 15. Reviewer Talking Points
+
+If asked "what did you build?":
+
+> I built a runnable AI-assisted onboarding integration. It ingests messy
+> customer documents, extracts structured customer data, validates and gates it,
+> and pushes it to a flaky legacy CRM through a resilient client.
+
+If asked "what makes it production-minded?":
+
+> The reliability details are real: retries only for transient failures,
+> exponential backoff with jitter, idempotency keys, a circuit breaker, DLQ
+> replay, and a write-before-act audit trail.
+
+If asked "why not a bigger agent framework?":
+
+> The LLM is doing extraction, not planning. The important engineering here is
+> deterministic integration behavior, so I kept the orchestration explicit.
+
+If asked "what would you change in production?":
+
+> I would replace local files with boto3 S3 reads, move SQLite to Postgres,
+> centralize breaker state in Redis or platform infrastructure, add CRM auth,
+> and build a human-review UI around the existing review states.

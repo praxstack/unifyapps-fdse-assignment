@@ -1,0 +1,15 @@
+# .understandignore — patterns for files/dirs to exclude from analysis
+# Auto-generated; defaults already exclude node_modules/, .git/, dist/, build/, *.lock, etc.
+
+# --- From .gitignore (uncomment to exclude) ---
+# .venv/
+# venv/
+# __pycache__/
+# *.egg-info/
+# .pytest_cache/
+# .ruff_cache/
+# htmlcov/
+# .coverage
+# audit.db
+# .env
+

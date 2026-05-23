@@ -1,0 +1,2046 @@
+{
+  "version": "1.0.0",
+  "gitCommitHash": "9f35fc772cf54da1e269f317282b9c1c86a9bea3",
+  "generatedAt": "2026-05-23T08:45:50.314Z",
+  "files": {
+    "samples/01-email-thread.eml": {
+      "filePath": "samples/01-email-thread.eml",
+      "contentHash": "747ee9b17d36140091b269e2e8e00a99af65544f2f30da0a750c472203b075f4",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 20,
+      "hasStructuralAnalysis": false
+    },
+    "samples/08-replay-of-01.eml": {
+      "filePath": "samples/08-replay-of-01.eml",
+      "contentHash": "e707433f1439743b229947a14d3a3750fad922aabfc0bcae5e282e824a2efe71",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 15,
+      "hasStructuralAnalysis": false
+    },
+    "src/agentic_onboard/__init__.py": {
+      "filePath": "src/agentic_onboard/__init__.py",
+      "contentHash": "1dd6bf1018547604711b75c6ef7a7a6eef5a0dead167b31ebfcd1c552d2b6894",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 16,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/audit.py": {
+      "filePath": "src/agentic_onboard/audit.py",
+      "contentHash": "ee9ac7d8b84f90dbb9a2e39630a71744b0973281cea5b514e1f4336ff59ea033",
+      "functions": [
+        {
+          "name": "_now_iso",
+          "params": [],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "open_default",
+          "params": [
+            "database_url"
+          ],
+          "returnType": "AuditStore",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [
+        {
+          "name": "AuditStore",
+          "methods": [
+            "__init__",
+            "close",
+            "_cursor",
+            "start_run",
+            "finalize_run",
+            "log",
+            "list_audit",
+            "dlq_put",
+            "dlq_pop",
+            "dlq_list"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 168
+        }
+      ],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "sqlite3",
+          "specifiers": [
+            "sqlite3"
+          ]
+        },
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "uuid",
+          "specifiers": [
+            "uuid"
+          ]
+        },
+        {
+          "source": "collections.abc",
+          "specifiers": [
+            "Iterator"
+          ]
+        },
+        {
+          "source": "contextlib",
+          "specifiers": [
+            "contextmanager"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "UTC",
+            "datetime"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Any"
+          ]
+        },
+        {
+          "source": ".schemas",
+          "specifiers": [
+            "RecordStatus"
+          ]
+        }
+      ],
+      "exports": [
+        "AuditStore",
+        "_now_iso",
+        "open_default"
+      ],
+      "totalLines": 276,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/circuit_breaker.py": {
+      "filePath": "src/agentic_onboard/circuit_breaker.py",
+      "contentHash": "eb54a7da25726380200395bb6ce7fa1ff8e818858c1cbcea2d06bcdea877008a",
+      "functions": [],
+      "classes": [
+        {
+          "name": "State",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "CircuitOpenError",
+          "methods": [
+            "__init__"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 13
+        },
+        {
+          "name": "CircuitBreaker",
+          "methods": [
+            "__init__",
+            "state",
+            "failure_count",
+            "before_call",
+            "record_success",
+            "record_failure",
+            "_maybe_transition_to_half_open",
+            "_seconds_until_half_open"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 105
+        }
+      ],
+      "imports": [
+        {
+          "source": "threading",
+          "specifiers": [
+            "threading"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "enum",
+          "specifiers": [
+            "StrEnum"
+          ]
+        },
+        {
+          "source": ".logging_config",
+          "specifiers": [
+            "get_logger"
+          ]
+        }
+      ],
+      "exports": [
+        "State",
+        "CircuitOpenError",
+        "CircuitBreaker"
+      ],
+      "totalLines": 158,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/cli.py": {
+      "filePath": "src/agentic_onboard/cli.py",
+      "contentHash": "fab132a3273727190b7aa577aaa7ef9d6c789c372423838f070763e28f78bf26",
+      "functions": [
+        {
+          "name": "run_cmd",
+          "params": [
+            "samples",
+            "json_logs"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 28
+        },
+        {
+          "name": "dlq_list_cmd",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 35
+        },
+        {
+          "name": "dlq_replay_cmd",
+          "params": [
+            "run_id"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 23
+        },
+        {
+          "name": "audit_cmd",
+          "params": [
+            "run_id"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 26
+        },
+        {
+          "name": "_print_summary",
+          "params": [
+            "result",
+            "settings_summary"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "_render_settings",
+          "params": [
+            "s"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "typer",
+          "specifiers": [
+            "typer"
+          ]
+        },
+        {
+          "source": "rich.console",
+          "specifiers": [
+            "Console"
+          ]
+        },
+        {
+          "source": "rich.table",
+          "specifiers": [
+            "Table"
+          ]
+        },
+        {
+          "source": ".ingest",
+          "specifiers": [
+            "FileIngester"
+          ]
+        },
+        {
+          "source": ".logging_config",
+          "specifiers": [
+            "configure_logging",
+            "get_logger"
+          ]
+        },
+        {
+          "source": ".orchestrator",
+          "specifiers": [
+            "build_default",
+            "replay_dlq"
+          ]
+        },
+        {
+          "source": ".schemas",
+          "specifiers": [
+            "PipelineResult"
+          ]
+        },
+        {
+          "source": ".settings",
+          "specifiers": [
+            "get_settings"
+          ]
+        }
+      ],
+      "exports": [
+        "run_cmd",
+        "dlq_list_cmd",
+        "dlq_replay_cmd",
+        "audit_cmd",
+        "_print_summary",
+        "_render_settings"
+      ],
+      "totalLines": 210,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/crm_client.py": {
+      "filePath": "src/agentic_onboard/crm_client.py",
+      "contentHash": "81a606f53f5c2003f00328d36d95f17cd84d8e1db043ce407cb94d1641d19579",
+      "functions": [],
+      "classes": [
+        {
+          "name": "CRMError",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "CRMRetriableError",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "CRMPermanentError",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "CRMClient",
+          "methods": [
+            "__init__",
+            "__enter__",
+            "__exit__",
+            "close",
+            "breaker",
+            "upsert",
+            "_do_upsert"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 141
+        }
+      ],
+      "imports": [
+        {
+          "source": "typing",
+          "specifiers": [
+            "TYPE_CHECKING"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "tenacity",
+          "specifiers": [
+            "Retrying",
+            "retry_if_exception_type",
+            "stop_after_attempt",
+            "wait_exponential_jitter"
+          ]
+        },
+        {
+          "source": ".circuit_breaker",
+          "specifiers": [
+            "CircuitBreaker",
+            "CircuitOpenError"
+          ]
+        },
+        {
+          "source": ".logging_config",
+          "specifiers": [
+            "get_logger"
+          ]
+        },
+        {
+          "source": ".schemas",
+          "specifiers": [
+            "CRMUpsertRequest",
+            "CRMUpsertResponse"
+          ]
+        },
+        {
+          "source": ".settings",
+          "specifiers": [
+            "Settings"
+          ]
+        }
+      ],
+      "exports": [
+        "CRMError",
+        "CRMRetriableError",
+        "CRMPermanentError",
+        "CRMClient"
+      ],
+      "totalLines": 210,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/ingest.py": {
+      "filePath": "src/agentic_onboard/ingest.py",
+      "contentHash": "74229e0ea6808296a2144479363a525e42fe859ac8732e432d3bb3f6148b6879",
+      "functions": [
+        {
+          "name": "_detect_format",
+          "params": [
+            "path"
+          ],
+          "returnType": "DocumentFormat",
+          "exported": true,
+          "lineCount": 11
+        }
+      ],
+      "classes": [
+        {
+          "name": "Ingester",
+          "methods": [
+            "list_documents"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "FileIngester",
+          "methods": [
+            "__init__",
+            "list_documents"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 43
+        },
+        {
+          "name": "S3Ingester",
+          "methods": [
+            "__init__",
+            "list_documents"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 23
+        }
+      ],
+      "imports": [
+        {
+          "source": "collections.abc",
+          "specifiers": [
+            "Iterable",
+            "Iterator"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Protocol"
+          ]
+        },
+        {
+          "source": ".schemas",
+          "specifiers": [
+            "DocumentFormat",
+            "RawDocument"
+          ]
+        }
+      ],
+      "exports": [
+        "Ingester",
+        "_detect_format",
+        "FileIngester",
+        "S3Ingester"
+      ],
+      "totalLines": 137,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/logging_config.py": {
+      "filePath": "src/agentic_onboard/logging_config.py",
+      "contentHash": "fa05c432b106722edc4878f995c58351668b3901617d44a3625cfaf45d41512f",
+      "functions": [
+        {
+          "name": "_redact",
+          "params": [
+            "value"
+          ],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "_redact_event",
+          "params": [
+            "_",
+            "__",
+            "event_dict"
+          ],
+          "returnType": "dict[str, Any]",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "configure_logging",
+          "params": [
+            "level",
+            "json_logs"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 35
+        },
+        {
+          "name": "get_logger",
+          "params": [
+            "name"
+          ],
+          "returnType": "Any",
+          "exported": true,
+          "lineCount": 3
+        }
+      ],
+      "classes": [
+        {
+          "name": "_RedactingStreamHandler",
+          "methods": [
+            "format"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 6
+        }
+      ],
+      "imports": [
+        {
+          "source": "logging",
+          "specifiers": [
+            "logging"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Any"
+          ]
+        },
+        {
+          "source": "structlog",
+          "specifiers": [
+            "structlog"
+          ]
+        }
+      ],
+      "exports": [
+        "_redact",
+        "_redact_event",
+        "configure_logging",
+        "_RedactingStreamHandler",
+        "get_logger"
+      ],
+      "totalLines": 111,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/orchestrator.py": {
+      "filePath": "src/agentic_onboard/orchestrator.py",
+      "contentHash": "69881b6bbae74a8c6ab98ced42b78f6b77fe46b2d4c41d127603a7f190b17088",
+      "functions": [
+        {
+          "name": "replay_dlq",
+          "params": [
+            "settings",
+            "crm",
+            "audit",
+            "run_id"
+          ],
+          "returnType": "tuple[int, int]",
+          "exported": true,
+          "lineCount": 39
+        },
+        {
+          "name": "build_default",
+          "params": [
+            "settings",
+            "ingester"
+          ],
+          "returnType": "tuple[Orchestrator, AuditStore, CRMClient]",
+          "exported": true,
+          "lineCount": 24
+        },
+        {
+          "name": "run_pipeline",
+          "params": [
+            "documents",
+            "settings"
+          ],
+          "returnType": "PipelineResult",
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "classes": [
+        {
+          "name": "Orchestrator",
+          "methods": [
+            "__init__",
+            "run",
+            "_handle_one",
+            "_push",
+            "_dlq"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 213
+        }
+      ],
+      "imports": [
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "collections.abc",
+          "specifiers": [
+            "Iterable"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "TYPE_CHECKING"
+          ]
+        },
+        {
+          "source": ".audit",
+          "specifiers": [
+            "AuditStore"
+          ]
+        },
+        {
+          "source": ".crm_client",
+          "specifiers": [
+            "CircuitOpenError",
+            "CRMClient",
+            "CRMPermanentError",
+            "CRMRetriableError"
+          ]
+        },
+        {
+          "source": ".ingest",
+          "specifiers": [
+            "Ingester"
+          ]
+        },
+        {
+          "source": ".logging_config",
+          "specifiers": [
+            "get_logger"
+          ]
+        },
+        {
+          "source": ".parser",
+          "specifiers": [
+            "ParseError",
+            "Parser"
+          ]
+        },
+        {
+          "source": ".schemas",
+          "specifiers": [
+            "CRMUpsertRequest",
+            "ParsedCustomer",
+            "PipelineResult",
+            "RawDocument",
+            "RecordStatus"
+          ]
+        },
+        {
+          "source": ".settings",
+          "specifiers": [
+            "Settings"
+          ]
+        }
+      ],
+      "exports": [
+        "Orchestrator",
+        "replay_dlq",
+        "build_default",
+        "run_pipeline"
+      ],
+      "totalLines": 357,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/parser.py": {
+      "filePath": "src/agentic_onboard/parser.py",
+      "contentHash": "eb43fa0aa0d7addb4a28da677925c5aae53c3cb8b3037b33340679edf594cad4",
+      "functions": [
+        {
+          "name": "_normalize_phone",
+          "params": [
+            "raw"
+          ],
+          "returnType": "str | None",
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "build_parser",
+          "params": [
+            "settings"
+          ],
+          "returnType": "Parser",
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [
+        {
+          "name": "ParseError",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "Parser",
+          "methods": [
+            "parse"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "OpenRouterParser",
+          "methods": [
+            "__init__",
+            "parse"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 51
+        },
+        {
+          "name": "MockParser",
+          "methods": [
+            "parse",
+            "_first_capture",
+            "_from_json"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 90
+        }
+      ],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "re",
+          "specifiers": [
+            "re"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Protocol"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "ValidationError"
+          ]
+        },
+        {
+          "source": ".logging_config",
+          "specifiers": [
+            "get_logger"
+          ]
+        },
+        {
+          "source": ".schemas",
+          "specifiers": [
+            "ParsedCustomer",
+            "RawDocument"
+          ]
+        },
+        {
+          "source": ".settings",
+          "specifiers": [
+            "Settings"
+          ]
+        }
+      ],
+      "exports": [
+        "ParseError",
+        "Parser",
+        "OpenRouterParser",
+        "_normalize_phone",
+        "MockParser",
+        "build_parser"
+      ],
+      "totalLines": 254,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/schemas.py": {
+      "filePath": "src/agentic_onboard/schemas.py",
+      "contentHash": "46944a6613c32bd2d27a6f854214a6a3cd6ae4a62153c88d1825197b0633f78f",
+      "functions": [],
+      "classes": [
+        {
+          "name": "DocumentFormat",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 8
+        },
+        {
+          "name": "RecordStatus",
+          "methods": [],
+          "properties": [],
+          "exported": true,
+          "lineCount": 7
+        },
+        {
+          "name": "RawDocument",
+          "methods": [],
+          "properties": [
+            "source_id",
+            "format",
+            "body",
+            "ingested_at"
+          ],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "ParsedCustomer",
+          "methods": [
+            "_normalize_phone"
+          ],
+          "properties": [
+            "source_id",
+            "customer_id",
+            "name",
+            "email",
+            "phone",
+            "company",
+            "address",
+            "notes",
+            "confidence"
+          ],
+          "exported": true,
+          "lineCount": 43
+        },
+        {
+          "name": "CRMUpsertRequest",
+          "methods": [
+            "from_parsed"
+          ],
+          "properties": [
+            "customer_id",
+            "name",
+            "email",
+            "phone",
+            "company",
+            "address",
+            "notes",
+            "dedup_key"
+          ],
+          "exported": true,
+          "lineCount": 38
+        },
+        {
+          "name": "CRMUpsertResponse",
+          "methods": [],
+          "properties": [
+            "customer_id",
+            "status",
+            "crm_record_id",
+            "received_at"
+          ],
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "PipelineResult",
+          "methods": [],
+          "properties": [
+            "run_id",
+            "total",
+            "succeeded",
+            "duplicates",
+            "human_review",
+            "parse_failed",
+            "dlq",
+            "duration_ms"
+          ],
+          "exported": true,
+          "lineCount": 13
+        }
+      ],
+      "imports": [
+        {
+          "source": "hashlib",
+          "specifiers": [
+            "hashlib"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "UTC",
+            "datetime"
+          ]
+        },
+        {
+          "source": "enum",
+          "specifiers": [
+            "StrEnum"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Annotated"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "BaseModel",
+            "ConfigDict",
+            "EmailStr",
+            "Field",
+            "StringConstraints",
+            "field_validator"
+          ]
+        }
+      ],
+      "exports": [
+        "DocumentFormat",
+        "RecordStatus",
+        "RawDocument",
+        "ParsedCustomer",
+        "CRMUpsertRequest",
+        "CRMUpsertResponse",
+        "PipelineResult"
+      ],
+      "totalLines": 190,
+      "hasStructuralAnalysis": true
+    },
+    "src/agentic_onboard/settings.py": {
+      "filePath": "src/agentic_onboard/settings.py",
+      "contentHash": "c2ece4429c84ce301297d0a291d5a429b3671479be9ab7637ea517a16033fd28",
+      "functions": [
+        {
+          "name": "get_settings",
+          "params": [],
+          "returnType": "Settings",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "reset_settings",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 4
+        }
+      ],
+      "classes": [
+        {
+          "name": "Settings",
+          "methods": [],
+          "properties": [
+            "llm_provider",
+            "openrouter_api_key",
+            "openrouter_model",
+            "openrouter_base_url",
+            "crm_base_url",
+            "crm_fault_rate_429",
+            "crm_fault_rate_503",
+            "crm_latency_ms_min",
+            "crm_latency_ms_max",
+            "retry_max_attempts",
+            "retry_initial_backoff_s",
+            "retry_max_backoff_s",
+            "circuit_breaker_threshold",
+            "circuit_breaker_reset_s",
+            "database_url",
+            "log_level",
+            "http_timeout_s"
+          ],
+          "exported": true,
+          "lineCount": 46
+        }
+      ],
+      "imports": [
+        {
+          "source": "typing",
+          "specifiers": [
+            "Literal"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "Field",
+            "SecretStr"
+          ]
+        },
+        {
+          "source": "pydantic_settings",
+          "specifiers": [
+            "BaseSettings",
+            "SettingsConfigDict"
+          ]
+        }
+      ],
+      "exports": [
+        "Settings",
+        "get_settings",
+        "reset_settings"
+      ],
+      "totalLines": 83,
+      "hasStructuralAnalysis": true
+    },
+    "src/mock_crm/__init__.py": {
+      "filePath": "src/mock_crm/__init__.py",
+      "contentHash": "a7c3936c18258aa5996ef9a9f36e9ac2482f77e957ee35a48d271865f03924e7",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 6,
+      "hasStructuralAnalysis": true
+    },
+    "src/mock_crm/server.py": {
+      "filePath": "src/mock_crm/server.py",
+      "contentHash": "ac5aa0c0283a29c5f71d4499e88ff5ee7df5f3ecc5d1c805e40c1c0bb24d5420",
+      "functions": [
+        {
+          "name": "_f",
+          "params": [
+            "env",
+            "default"
+          ],
+          "returnType": "float",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "_i",
+          "params": [
+            "env",
+            "default"
+          ],
+          "returnType": "int",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "_next_id",
+          "params": [],
+          "returnType": "str",
+          "exported": true,
+          "lineCount": 4
+        },
+        {
+          "name": "_inject_latency",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "_maybe_fail",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 16
+        },
+        {
+          "name": "health",
+          "params": [],
+          "returnType": "dict[str, str]",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "list_records",
+          "params": [],
+          "returnType": "dict[str, Any]",
+          "exported": true,
+          "lineCount": 3
+        },
+        {
+          "name": "customer_upsert",
+          "params": [
+            "request",
+            "idempotency_key"
+          ],
+          "returnType": "JSONResponse",
+          "exported": true,
+          "lineCount": 63
+        },
+        {
+          "name": "main",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "random",
+          "specifiers": [
+            "random"
+          ]
+        },
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "uuid",
+          "specifiers": [
+            "uuid"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "UTC",
+            "datetime"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Any"
+          ]
+        },
+        {
+          "source": "fastapi",
+          "specifiers": [
+            "FastAPI",
+            "Header",
+            "HTTPException",
+            "Request"
+          ]
+        },
+        {
+          "source": "fastapi.responses",
+          "specifiers": [
+            "JSONResponse"
+          ]
+        }
+      ],
+      "exports": [
+        "_f",
+        "_i",
+        "_next_id",
+        "_inject_latency",
+        "_maybe_fail",
+        "health",
+        "list_records",
+        "customer_upsert",
+        "main"
+      ],
+      "totalLines": 213,
+      "hasStructuralAnalysis": true
+    },
+    "tests/__init__.py": {
+      "filePath": "tests/__init__.py",
+      "contentHash": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b",
+      "functions": [],
+      "classes": [],
+      "imports": [],
+      "exports": [],
+      "totalLines": 2,
+      "hasStructuralAnalysis": true
+    },
+    "tests/conftest.py": {
+      "filePath": "tests/conftest.py",
+      "contentHash": "89011bb4992baff39d8769435f904f805749d74be2b8898685d5ba15c92c60d1",
+      "functions": [
+        {
+          "name": "settings",
+          "params": [
+            "tmp_path"
+          ],
+          "returnType": "Settings",
+          "exported": true,
+          "lineCount": 14
+        },
+        {
+          "name": "audit",
+          "params": [
+            "settings"
+          ],
+          "returnType": "Iterator[AuditStore]",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "parser",
+          "params": [],
+          "returnType": "MockParser",
+          "exported": true,
+          "lineCount": 2
+        },
+        {
+          "name": "make_crm_client",
+          "params": [
+            "settings",
+            "handler"
+          ],
+          "returnType": "CRMClient",
+          "exported": true,
+          "lineCount": 12
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "collections.abc",
+          "specifiers": [
+            "Iterator"
+          ]
+        },
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "agentic_onboard.audit",
+          "specifiers": [
+            "AuditStore"
+          ]
+        },
+        {
+          "source": "agentic_onboard.crm_client",
+          "specifiers": [
+            "CRMClient"
+          ]
+        },
+        {
+          "source": "agentic_onboard.parser",
+          "specifiers": [
+            "MockParser"
+          ]
+        },
+        {
+          "source": "agentic_onboard.settings",
+          "specifiers": [
+            "Settings"
+          ]
+        }
+      ],
+      "exports": [
+        "settings",
+        "audit",
+        "parser",
+        "make_crm_client"
+      ],
+      "totalLines": 79,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_audit.py": {
+      "filePath": "tests/test_audit.py",
+      "contentHash": "afa5eb8dab4c730eaf8da10fb86519dea4fe614c1609d377131a48527e144625",
+      "functions": [],
+      "classes": [
+        {
+          "name": "TestRunLifecycle",
+          "methods": [
+            "test_start_and_finalize_run"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 10
+        },
+        {
+          "name": "TestAuditLog",
+          "methods": [
+            "test_log_appends_row",
+            "test_log_accepts_record_status_enum",
+            "test_audit_log_ordered_by_id"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 34
+        },
+        {
+          "name": "TestDLQ",
+          "methods": [
+            "test_put_inserts_row",
+            "test_put_upserts_existing_run_source",
+            "test_pop_removes_row",
+            "test_dlq_list_filtered_by_run"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 43
+        }
+      ],
+      "imports": [
+        {
+          "source": "agentic_onboard.audit",
+          "specifiers": [
+            "AuditStore"
+          ]
+        },
+        {
+          "source": "agentic_onboard.schemas",
+          "specifiers": [
+            "RecordStatus"
+          ]
+        }
+      ],
+      "exports": [
+        "TestRunLifecycle",
+        "TestAuditLog",
+        "TestDLQ"
+      ],
+      "totalLines": 100,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_circuit_breaker.py": {
+      "filePath": "tests/test_circuit_breaker.py",
+      "contentHash": "2e36526ea2d5b2a0f66f923734ed8899a95935feb8ba55d1b30c6ea5974cb6f2",
+      "functions": [
+        {
+          "name": "breaker",
+          "params": [],
+          "returnType": "CircuitBreaker",
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestCircuitBreaker",
+          "methods": [
+            "test_starts_closed",
+            "test_opens_after_threshold_failures",
+            "test_open_breaker_rejects_calls",
+            "test_success_resets_failure_count",
+            "test_transitions_to_half_open_after_cooldown",
+            "test_half_open_success_closes_breaker",
+            "test_half_open_failure_reopens",
+            "test_invalid_threshold_rejected"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 59
+        }
+      ],
+      "imports": [
+        {
+          "source": "time",
+          "specifiers": [
+            "time"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "agentic_onboard.circuit_breaker",
+          "specifiers": [
+            "CircuitBreaker",
+            "CircuitOpenError",
+            "State"
+          ]
+        }
+      ],
+      "exports": [
+        "breaker",
+        "TestCircuitBreaker"
+      ],
+      "totalLines": 76,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_crm_client.py": {
+      "filePath": "tests/test_crm_client.py",
+      "contentHash": "3a4ab41ca7213d34ebe76e97617091afd2e6cad83d9e8edcd246d9c10cdea8cf",
+      "functions": [
+        {
+          "name": "_request",
+          "params": [],
+          "returnType": "CRMUpsertRequest",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "_success_payload",
+          "params": [
+            "req"
+          ],
+          "returnType": "dict[str, Any]",
+          "exported": true,
+          "lineCount": 7
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestCRMClient",
+          "methods": [
+            "test_happy_path_201",
+            "test_retries_429_then_succeeds",
+            "test_retries_503_then_succeeds",
+            "test_exhausts_retries_then_raises",
+            "test_4xx_other_than_429_is_permanent",
+            "test_breaker_opens_after_repeated_failures",
+            "test_idempotency_header_carries_dedup_key",
+            "test_connection_error_is_retriable"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 124
+        }
+      ],
+      "imports": [
+        {
+          "source": "json",
+          "specifiers": [
+            "json"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "UTC",
+            "datetime"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Any"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "agentic_onboard.crm_client",
+          "specifiers": [
+            "CircuitOpenError",
+            "CRMPermanentError",
+            "CRMRetriableError"
+          ]
+        },
+        {
+          "source": "agentic_onboard.schemas",
+          "specifiers": [
+            "CRMUpsertRequest",
+            "ParsedCustomer"
+          ]
+        },
+        {
+          "source": "agentic_onboard.settings",
+          "specifiers": [
+            "Settings"
+          ]
+        },
+        {
+          "source": ".conftest",
+          "specifiers": [
+            "make_crm_client"
+          ]
+        }
+      ],
+      "exports": [
+        "_request",
+        "_success_payload",
+        "TestCRMClient"
+      ],
+      "totalLines": 172,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_ingest.py": {
+      "filePath": "tests/test_ingest.py",
+      "contentHash": "5056639364d044a95a3ba127d50a117fb5699b8cc6f1e39d5d9d9f206236a33d",
+      "functions": [],
+      "classes": [
+        {
+          "name": "TestFileIngester",
+          "methods": [
+            "test_detects_email_format",
+            "test_detects_json_blob",
+            "test_detects_ocr_double_extension",
+            "test_unknown_extension_falls_back_to_freeform",
+            "test_hidden_files_skipped",
+            "test_zero_byte_files_skipped",
+            "test_recursive_walk",
+            "test_missing_root_raises",
+            "test_file_path_not_allowed_as_root"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 51
+        }
+      ],
+      "imports": [
+        {
+          "source": "pathlib",
+          "specifiers": [
+            "Path"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "agentic_onboard.ingest",
+          "specifiers": [
+            "FileIngester"
+          ]
+        },
+        {
+          "source": "agentic_onboard.schemas",
+          "specifiers": [
+            "DocumentFormat"
+          ]
+        }
+      ],
+      "exports": [
+        "TestFileIngester"
+      ],
+      "totalLines": 64,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_logging_redaction.py": {
+      "filePath": "tests/test_logging_redaction.py",
+      "contentHash": "4ab47fd46ccd7d9562b324d6f5e0ba781e34860823d20ea0a51e6a6e602eac01",
+      "functions": [
+        {
+          "name": "test_redact_string",
+          "params": [
+            "raw",
+            "should_be_redacted"
+          ],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 9
+        },
+        {
+          "name": "test_redact_event_walks_dict",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 15
+        },
+        {
+          "name": "test_redact_handles_jwt_shape",
+          "params": [],
+          "returnType": "None",
+          "exported": true,
+          "lineCount": 9
+        }
+      ],
+      "classes": [],
+      "imports": [
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "agentic_onboard.logging_config",
+          "specifiers": [
+            "_redact",
+            "_redact_event"
+          ]
+        }
+      ],
+      "exports": [
+        "test_redact_string",
+        "test_redact_event_walks_dict",
+        "test_redact_handles_jwt_shape"
+      ],
+      "totalLines": 65,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_mock_crm.py": {
+      "filePath": "tests/test_mock_crm.py",
+      "contentHash": "d2a26b3ecd974eeaa27e69a6c29bb7adbf84b63d5e942b3eaa225fefea6cf081",
+      "functions": [
+        {
+          "name": "client",
+          "params": [],
+          "returnType": "TestClient",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestHealth",
+          "methods": [
+            "test_health_ok"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 5
+        },
+        {
+          "name": "TestUpsert",
+          "methods": [
+            "_body",
+            "test_create_new_record",
+            "test_replay_with_same_idempotency_key_returns_duplicate",
+            "test_missing_idempotency_key_rejected",
+            "test_missing_required_fields_rejected",
+            "test_admin_records_returns_inserted"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 64
+        }
+      ],
+      "imports": [
+        {
+          "source": "os",
+          "specifiers": [
+            "os"
+          ]
+        },
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "fastapi.testclient",
+          "specifiers": [
+            "TestClient"
+          ]
+        },
+        {
+          "source": "mock_crm",
+          "specifiers": [
+            "crm_server"
+          ]
+        }
+      ],
+      "exports": [
+        "client",
+        "TestHealth",
+        "TestUpsert"
+      ],
+      "totalLines": 104,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_orchestrator.py": {
+      "filePath": "tests/test_orchestrator.py",
+      "contentHash": "502aa63ddb56c190c9c3fc94bed8a2af8033d2cf914a48d27a78bac0d113bc37",
+      "functions": [
+        {
+          "name": "_success_transport",
+          "params": [],
+          "returnType": "tuple[httpx.MockTransport, dict[str, int]]",
+          "exported": true,
+          "lineCount": 17
+        },
+        {
+          "name": "_email_doc",
+          "params": [
+            "idx"
+          ],
+          "returnType": "RawDocument",
+          "exported": true,
+          "lineCount": 11
+        },
+        {
+          "name": "_build_orchestrator",
+          "params": [
+            "settings",
+            "docs",
+            "transport"
+          ],
+          "returnType": "tuple[Orchestrator, Ingester]",
+          "exported": true,
+          "lineCount": 22
+        }
+      ],
+      "classes": [
+        {
+          "name": "_ListIngester",
+          "methods": [
+            "__init__",
+            "list_documents"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 6
+        },
+        {
+          "name": "TestOrchestrator",
+          "methods": [
+            "test_clean_run_lands_all_records",
+            "test_idempotent_replay_marks_duplicates",
+            "test_parse_failure_does_not_crash_run",
+            "test_dlq_captures_exhausted_retries",
+            "test_replay_dlq_succeeds_on_recovered_crm"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 78
+        }
+      ],
+      "imports": [
+        {
+          "source": "collections.abc",
+          "specifiers": [
+            "Iterator"
+          ]
+        },
+        {
+          "source": "datetime",
+          "specifiers": [
+            "UTC",
+            "datetime"
+          ]
+        },
+        {
+          "source": "typing",
+          "specifiers": [
+            "Any"
+          ]
+        },
+        {
+          "source": "httpx",
+          "specifiers": [
+            "httpx"
+          ]
+        },
+        {
+          "source": "agentic_onboard.audit",
+          "specifiers": [
+            "open_default"
+          ]
+        },
+        {
+          "source": "agentic_onboard.crm_client",
+          "specifiers": [
+            "CRMClient"
+          ]
+        },
+        {
+          "source": "agentic_onboard.ingest",
+          "specifiers": [
+            "Ingester"
+          ]
+        },
+        {
+          "source": "agentic_onboard.orchestrator",
+          "specifiers": [
+            "Orchestrator",
+            "replay_dlq"
+          ]
+        },
+        {
+          "source": "agentic_onboard.parser",
+          "specifiers": [
+            "MockParser"
+          ]
+        },
+        {
+          "source": "agentic_onboard.schemas",
+          "specifiers": [
+            "DocumentFormat",
+            "RawDocument"
+          ]
+        },
+        {
+          "source": "agentic_onboard.settings",
+          "specifiers": [
+            "Settings"
+          ]
+        }
+      ],
+      "exports": [
+        "_ListIngester",
+        "_success_transport",
+        "_email_doc",
+        "_build_orchestrator",
+        "TestOrchestrator"
+      ],
+      "totalLines": 181,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_parser.py": {
+      "filePath": "tests/test_parser.py",
+      "contentHash": "ff64dd9f6f726acbd3196313d12fec2bc36f640c6b0cca53f7bde1c9cad300d5",
+      "functions": [
+        {
+          "name": "_doc",
+          "params": [
+            "body",
+            "fmt"
+          ],
+          "returnType": "RawDocument",
+          "exported": true,
+          "lineCount": 2
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestMockParser",
+          "methods": [
+            "test_extracts_from_email_thread",
+            "test_extracts_from_json",
+            "test_falls_back_to_email_local_part_for_name",
+            "test_no_email_raises",
+            "test_invalid_email_routes_to_parse_error",
+            "test_lower_confidence_when_no_company_or_address",
+            "test_higher_confidence_when_address_present",
+            "test_json_with_nested_fields_works"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 58
+        }
+      ],
+      "imports": [
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "agentic_onboard.parser",
+          "specifiers": [
+            "MockParser",
+            "ParseError"
+          ]
+        },
+        {
+          "source": "agentic_onboard.schemas",
+          "specifiers": [
+            "DocumentFormat",
+            "RawDocument"
+          ]
+        }
+      ],
+      "exports": [
+        "_doc",
+        "TestMockParser"
+      ],
+      "totalLines": 73,
+      "hasStructuralAnalysis": true
+    },
+    "tests/test_schemas.py": {
+      "filePath": "tests/test_schemas.py",
+      "contentHash": "d7029a9aeee2634a68ffc69f9f825f79474171be930bf9bbef361889d7397fc1",
+      "functions": [
+        {
+          "name": "_valid_parsed",
+          "params": [],
+          "returnType": "ParsedCustomer",
+          "exported": true,
+          "lineCount": 10
+        }
+      ],
+      "classes": [
+        {
+          "name": "TestParsedCustomer",
+          "methods": [
+            "test_minimal_valid_record",
+            "test_invalid_email_rejected",
+            "test_confidence_must_be_in_range",
+            "test_phone_normalisation",
+            "test_phone_blank_becomes_none"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 33
+        },
+        {
+          "name": "TestCRMUpsertRequest",
+          "methods": [
+            "test_dedup_key_is_deterministic",
+            "test_dedup_key_changes_when_payload_changes",
+            "test_dedup_key_stable_across_optional_fields",
+            "test_property_dedup_key_is_64_hex_chars"
+          ],
+          "properties": [],
+          "exported": true,
+          "lineCount": 26
+        }
+      ],
+      "imports": [
+        {
+          "source": "pytest",
+          "specifiers": [
+            "pytest"
+          ]
+        },
+        {
+          "source": "hypothesis",
+          "specifiers": [
+            "given"
+          ]
+        },
+        {
+          "source": "hypothesis",
+          "specifiers": [
+            "st"
+          ]
+        },
+        {
+          "source": "pydantic",
+          "specifiers": [
+            "ValidationError"
+          ]
+        },
+        {
+          "source": "agentic_onboard.schemas",
+          "specifiers": [
+            "CRMUpsertRequest",
+            "ParsedCustomer"
+          ]
+        }
+      ],
+      "exports": [
+        "_valid_parsed",
+        "TestParsedCustomer",
+        "TestCRMUpsertRequest"
+      ],
+      "totalLines": 86,
+      "hasStructuralAnalysis": true
+    }
+  }
+}
