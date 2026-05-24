@@ -33,6 +33,27 @@ This directory contains **project-level skills** for Cline and other agents work
 - TODO ledger management
 - Non-negotiable contract enforcement (no fake completions, no unverified claims)
 
+### autonomous-orchestrion-v3
+
+**Purpose**: Host-neutral autonomous software work protocol for end-to-end task ownership.
+
+**When to use**:
+- For any non-trivial task where the agent should own entire workflow
+- When expecting autonomous discovery, planning, execution, review, and verification
+- For complex features, refactors, security-sensitive changes, or debugging
+- When decisions require council review (llm-council-plus)
+- When work benefits from subagent parallelism (research, architecture review, testing, QA)
+
+**What it does**:
+- 10-phase lifecycle (bootstrap → recon → plan → isolate → execute → review → QA → verify → docs → ship)
+- Constitutional rules (ThinkBeforeAct, ErrorHandlingCarriesForward, LoopUntilVerified, KeepOrRevert, CouncilBeforeEgo)
+- Host-neutral discovery (detects Cline, Claude Code, Cursor, Codex, etc.)
+- Skill discovery and loading with fallback paths
+- Subagent orchestration (repo-cartographer, architecture-critic, red-team, test-strategist, etc.)
+- Council-swarm coordination with llm-council-plus
+- Verification gates (no fake completions, proof before claims)
+- Safety rails and reversibility preservation
+
 ## How Skills Load in Cline
 
 Cline automatically discovers and loads skills from this `.cline/skills/` directory. Skills in this location are:
